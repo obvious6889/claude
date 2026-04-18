@@ -150,7 +150,7 @@ export default class CommuteScene extends Phaser.Scene {
         backgroundColor: '#00000077', padding: { x: 6, y: 3 } }).setOrigin(1, 0).setDepth(21);
 
     // Controls hint
-    this.add.text(512, 670, '↑ ↓ — рухатися по дорозі',
+    this.add.text(512, 670, '← → — йти вперед/назад   ↑ ↓ — рухатися по дорозі',
       { fontSize: '13px', color: '#FFFF44', backgroundColor: '#00000066',
         padding: { x: 8, y: 3 } }).setOrigin(0.5).setDepth(21);
   }
@@ -206,19 +206,25 @@ export default class CommuteScene extends Phaser.Scene {
     const dt = delta / 1000;
 
     this.elapsed += dt;
-    this.scrollX  += SCROLL_SPEED * dt;
+
+    // Player controls scroll (right = forward, left = backward)
+    const moving = this.cursors.right.isDown || this.cursors.left.isDown;
+    if (this.cursors.right.isDown) this.scrollX = Math.min(this.scrollX + SCROLL_SPEED * dt, WORLD_W * 4);
+    if (this.cursors.left.isDown)  this.scrollX = Math.max(this.scrollX - SCROLL_SPEED * dt, 0);
 
     // Player vertical movement
     if (this.cursors.up.isDown)   this.playerY = Math.max(PLAYER_MIN_Y, this.playerY - PLAYER_V * dt);
     if (this.cursors.down.isDown) this.playerY = Math.min(PLAYER_MAX_Y, this.playerY + PLAYER_V * dt);
     this.playerSprite.setY(this.playerY);
 
-    // Walk animation
-    this._walkTimer += delta;
-    if (this._walkTimer > 280) {
-      this._walkTimer = 0;
-      this._walkFrame = 1 - this._walkFrame;
-      this._redrawMario();
+    // Walk animation only while moving
+    if (moving) {
+      this._walkTimer += delta;
+      if (this._walkTimer > 280) {
+        this._walkTimer = 0;
+        this._walkFrame = 1 - this._walkFrame;
+        this._redrawMario();
+      }
     }
 
     // Draw scrolling scene

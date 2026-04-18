@@ -20,7 +20,7 @@ const PRODUCT_POS = {
 const PLAYER_SPEED    = 190;
 const CUSTOMER_SPEED  = 95;
 const INTERACTION_R   = 85;
-const SPAWN_INTERVAL  = (11 * 60 * 1000) / 25; // ms between customers
+const SPAWN_INTERVAL  = (11 * 60 * 1000) / 50; // ms between customers
 const CUSTOMER_COLORS = [0xFF6B6B, 0x6B6BFF, 0x00CC88, 0xFFAA00, 0xFF44FF, 0x00CCFF, 0xFF8800];
 
 // ─── Scene ───────────────────────────────────────────────────────────────────
@@ -304,7 +304,7 @@ export default class ShopScene extends Phaser.Scene {
   // ─── Customer AI ──────────────────────────────────────────────────────────
 
   _spawnCustomer() {
-    if (this.spawnedCount >= 25) return;
+    if (this.spawnedCount >= 50) return;
     const available = PRODUCTS.filter(p => GameState.stock[p.id] > 0);
     if (available.length === 0) return;
 

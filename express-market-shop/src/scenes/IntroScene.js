@@ -67,7 +67,7 @@ export default class IntroScene extends Phaser.Scene {
 
     this.time.delayedCall(3200, () => {
       this.cameras.main.fadeOut(500, 0, 0, 0);
-      this.time.delayedCall(500, () => this.scene.start('ShopScene'));
+      this.time.delayedCall(500, () => this.scene.start('CommuteScene', { destination: 'shop' }));
     });
   }
 

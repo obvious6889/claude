@@ -118,7 +118,7 @@ export default class HomeScene extends Phaser.Scene {
 
     if (this.nightMin >= 27 * 60) {
       this.cameras.main.fadeOut(600, 0, 0, 0);
-      this.time.delayedCall(600, () => this.scene.start('ShopScene'));
+      this.time.delayedCall(600, () => this.scene.start('CommuteScene', { destination: 'shop' }));
     }
   }
 }

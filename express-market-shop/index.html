@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <title>Експрес Маркет Магазин</title>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0d0d1a;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      overflow: hidden;
+      font-family: Arial, sans-serif;
+    }
+
+    #game-container {
+      position: relative;
+      line-height: 0;
+    }
+
+    canvas { display: block; }
+
+    /* ── Notification bar ── */
+    #notification {
+      display: none;
+      position: absolute;
+      top: 62px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(180, 60, 10, 0.96);
+      color: #fff;
+      padding: 10px 22px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: bold;
+      z-index: 200;
+      pointer-events: none;
+      white-space: nowrap;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.5);
+    }
+
+    /* ── Order panel ── */
+    #order-panel {
+      display: none;
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(14, 30, 14, 0.97);
+      border-top: 3px solid #4CAF50;
+      padding: 14px 18px;
+      color: #fff;
+      z-index: 100;
+      max-height: 56%;
+      overflow-y: auto;
+    }
+
+    #order-panel h2 {
+      color: #4CAF50;
+      font-size: 18px;
+      margin-bottom: 12px;
+    }
+
+    .order-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .order-item {
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 7px;
+      padding: 8px 10px;
+    }
+
+    .prod-name  { font-weight: bold; font-size: 13px; margin-bottom: 2px; }
+    .prod-stock { color: #aaa; font-size: 11px; }
+    .prod-price { color: #FFD700; font-size: 11px; margin-bottom: 4px; }
+
+    .qty-control { display: flex; align-items: center; gap: 6px; }
+
+    .qty-btn {
+      background: #4CAF50;
+      border: none;
+      color: #fff;
+      width: 26px;
+      height: 26px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 18px;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .qty-btn:hover { background: #388E3C; }
+
+    .qty-display { min-width: 28px; text-align: center; font-size: 16px; font-weight: bold; }
+
+    .order-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 4px; }
+
+    .btn-confirm, .btn-cancel {
+      border: none;
+      padding: 9px 22px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 15px;
+      font-weight: bold;
+    }
+    .btn-confirm { background: #4CAF50; color: #fff; }
+    .btn-confirm:hover { background: #388E3C; }
+    .btn-cancel  { background: #555; color: #fff; }
+    .btn-cancel:hover  { background: #444; }
+  </style>
+</head>
+<body>
+  <div id="game-container">
+    <div id="notification"></div>
+
+    <div id="order-panel">
+      <h2>🖥 Комп'ютер замовлень</h2>
+      <div class="order-grid" id="order-grid"></div>
+      <div class="order-actions">
+        <button class="btn-cancel"  id="btn-cancel-order">Закрити</button>
+        <button class="btn-confirm" id="btn-confirm-order">✔ Замовити</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>

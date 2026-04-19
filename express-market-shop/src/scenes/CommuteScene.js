@@ -54,7 +54,8 @@ export default class CommuteScene extends Phaser.Scene {
     this.cameras.main.startFollow(this.playerObj, true, 0.09, 0.09);
     this._createHUD();
 
-    this.cursors = this.input.keyboard.createCursorKeys();
+    this.cursors  = this.input.keyboard.createCursorKeys();
+    this.enterKey = this.input.keyboard.addKey('ENTER');
     this.cameras.main.fadeIn(400);
   }
 
@@ -259,9 +260,14 @@ export default class CommuteScene extends Phaser.Scene {
       .setOrigin(1, 0).setScrollFactor(0).setDepth(51);
 
     const dest = this.goingHome ? 'ДАЧУ 🏠' : 'МАГАЗИН 🏪';
-    this.add.text(512, 660, `↑ ↓ ← →  |  Знайди ${dest} і підійди до нього`,
+    this.add.text(512, 650, `↑ ↓ ← →  Знайди ${dest} і натисни ENTER щоб увійти`,
       { fontSize: '13px', color: '#FFFF44', backgroundColor: '#00000077',
         padding: { x: 8, y: 4 } })
+      .setOrigin(0.5).setScrollFactor(0).setDepth(51);
+
+    this.enterHintText = this.add.text(512, 620, '',
+      { fontSize: '18px', color: '#00FF88', fontStyle: 'bold',
+        backgroundColor: '#00000099', padding: { x: 12, y: 6 } })
       .setOrigin(0.5).setScrollFactor(0).setDepth(51);
   }
 
@@ -301,9 +307,18 @@ export default class CommuteScene extends Phaser.Scene {
     this.progressBar.fillStyle(0x00AA44);
     this.progressBar.fillRect(690, 20, 200 * Math.min(1, this.elapsed / TOTAL_TIME), 10);
 
-    // Arrive at destination OR time runs out
+    // Near destination: show Enter hint
     const dist = Math.hypot(this.playerX - this.destX, this.playerY - this.destY);
-    if (dist < 65 || this.elapsed >= TOTAL_TIME) this._finish();
+    if (dist < 90) {
+      const label = this.goingHome ? 'ENTER — увійти додому 🏠' : 'ENTER — увійти в магазин 🏪';
+      this.enterHintText.setText(label);
+      if (Phaser.Input.Keyboard.JustDown(this.enterKey)) this._finish();
+    } else {
+      this.enterHintText.setText('');
+    }
+
+    // Fallback: auto-transition if time runs out
+    if (this.elapsed >= TOTAL_TIME) this._finish();
   }
 
   _finish() {

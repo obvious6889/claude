@@ -2,6 +2,7 @@ import LevelSelectScene from './scenes/LevelSelectScene.js';
 import IntroScene from './scenes/IntroScene.js';
 import CommuteScene from './scenes/CommuteScene.js';
 import ShopScene from './scenes/ShopScene.js';
+import BackRoomScene from './scenes/BackRoomScene.js';
 import HomeScene from './scenes/HomeScene.js';
 
 const config = {
@@ -10,7 +11,7 @@ const config = {
   height: 700,
   backgroundColor: '#1a1a2e',
   parent: 'game-container',
-  scene: [LevelSelectScene, IntroScene, CommuteScene, ShopScene, HomeScene],
+  scene: [LevelSelectScene, IntroScene, CommuteScene, ShopScene, BackRoomScene, HomeScene],
 };
 
 new Phaser.Game(config);

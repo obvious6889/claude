@@ -15,6 +15,8 @@ export const GameState = {
   stock: {},
   pendingDeliveries: [],
   pendingStock: {},
+  homeOrders: [],
+  nextOrderNumber: 1,
 };
 
 PRODUCTS.forEach(p => {
@@ -27,5 +29,7 @@ export function resetForLevel(level) {
   GameState.day = 1;
   GameState.pendingDeliveries = [];
   GameState.pendingStock = {};
+  GameState.homeOrders = [];
+  GameState.nextOrderNumber = 1;
   PRODUCTS.forEach(p => { GameState.stock[p.id] = 20; });
 }

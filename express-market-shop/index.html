@@ -116,6 +116,51 @@
     .btn-confirm:hover { background: #388E3C; }
     .btn-cancel  { background: #555; color: #fff; }
     .btn-cancel:hover  { background: #444; }
+
+    /* ── Home delivery panel ── */
+    #home-panel {
+      display: none;
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(10, 18, 50, 0.97);
+      border-top: 3px solid #4488FF;
+      padding: 14px 18px;
+      color: #fff;
+      z-index: 100;
+      max-height: 56%;
+      overflow-y: auto;
+    }
+    #home-panel h2 { color: #88BBFF; font-size: 18px; margin-bottom: 12px; }
+    #home-order-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+    .home-order-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(100,150,255,0.2);
+      border-radius: 7px;
+      padding: 8px 14px;
+      font-size: 14px;
+    }
+    .home-order-info { flex: 1; }
+    .home-order-items { color: #AADDFF; font-weight: bold; }
+    .home-order-earn  { color: #00FF88; font-size: 13px; margin-top: 2px; }
+    .home-order-missing { color: #FF6644; font-size: 12px; margin-top: 2px; }
+    .btn-fulfill {
+      background: #2255AA;
+      border: none;
+      color: #fff;
+      padding: 7px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: bold;
+      white-space: nowrap;
+    }
+    .btn-fulfill:hover { background: #3366CC; }
+    .btn-fulfill:disabled { background: #333; color: #666; cursor: default; }
   </style>
 </head>
 <body>

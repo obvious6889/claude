@@ -13,6 +13,12 @@ const EXIT_DOOR    = { x: 690, y: 655 };
 const PLAYER_START    = { x: 460, y: 560 };
 const BACKROOM_DOOR   = { x: 940, y: 600 };
 
+const SELF_CHECKOUT = [
+  { x: 285, y: 575 }, { x: 400, y: 575 },
+  { x: 515, y: 575 }, { x: 630, y: 575 },
+];
+const VACUUM_DURATION = 20; // seconds
+
 const PRODUCT_POS = {
   milk:      { x: 130, y: 200 }, eggs:      { x: 280, y: 200 },
   cream:     { x: 130, y: 360 }, cherries:  { x: 280, y: 360 },
@@ -53,6 +59,8 @@ export default class ShopScene extends Phaser.Scene {
     this.events.on('wake', () => {
       this._arrowKeys.left = this._arrowKeys.right =
       this._arrowKeys.up   = this._arrowKeys.down  = false;
+      this.vacuuming = false;
+      this.registerClosedText.setVisible(!this.registerOpen);
       const n = GameState.homeOrders.length;
       this.backroomBadge.setText(n > 0 ? `${n}` : '').setVisible(n > 0);
       this.cameras.main.fadeIn(300);
@@ -72,6 +80,10 @@ export default class ShopScene extends Phaser.Scene {
     this.productSlots     = {};
     this.homeOrderTimer   = 0;
     this._nextHomeOrderIn = 40 + Math.floor(Math.random() * 21);
+    this.registerOpen     = true;
+    this.vacuuming        = false;
+    this.vacuumProgress   = 0;
+    this.noonNotified     = false;
   }
 
   // ─── Human sprite helper ──────────────────────────────────────────────────
@@ -112,6 +124,21 @@ export default class ShopScene extends Phaser.Scene {
     g.fillStyle(0x222222); g.fillRect(REGISTER_POS.x - 20, REGISTER_POS.y - 32, 40, 14);
     this.add.text(REGISTER_POS.x, REGISTER_POS.y - 42, '💰 КАСА',
       { fontSize: '12px', color: '#FFD700', fontStyle: 'bold' }).setOrigin(0.5);
+    this.registerClosedText = this.add.text(REGISTER_POS.x, REGISTER_POS.y + 8, '🔒 ЗАЧИНЕНО',
+      { fontSize: '14px', color: '#FF4444', fontStyle: 'bold',
+        backgroundColor: '#000000CC', padding: { x: 6, y: 3 } })
+      .setOrigin(0.5).setDepth(12).setVisible(false);
+
+    // Self-checkout kiosks
+    this.add.text(457, 544, '🛒 КАСИ САМООБСЛУГОВУВАННЯ',
+      { fontSize: '10px', color: '#AADDFF', fontStyle: 'bold' }).setOrigin(0.5).setDepth(5);
+    SELF_CHECKOUT.forEach((pos, i) => {
+      g.fillStyle(0x334466); g.fillRect(pos.x - 22, pos.y - 30, 44, 54);
+      g.fillStyle(0x4488BB); g.fillRect(pos.x - 18, pos.y - 26, 36, 28);
+      g.fillStyle(0x222233); g.fillRect(pos.x - 7, pos.y + 4, 14, 16);
+      this.add.text(pos.x, pos.y - 40, `🖥 СК${i + 1}`,
+        { fontSize: '10px', color: '#AADDFF', fontStyle: 'bold' }).setOrigin(0.5).setDepth(5);
+    });
 
     g.fillStyle(0x222222); g.fillRect(COMPUTER_POS.x - 38, COMPUTER_POS.y - 28, 76, 50);
     g.fillStyle(0x3366FF); g.fillRect(COMPUTER_POS.x - 32, COMPUTER_POS.y - 24, 64, 38);
@@ -241,6 +268,8 @@ export default class ShopScene extends Phaser.Scene {
     this.enterKey.on('down', () => this._handleEnter());
     this.input.keyboard.addKey('SPACE').on('down', () => this._handleSpace());
     this.input.keyboard.addKey('ESC').on('down', () => this._closeOrderPanel());
+    this.input.keyboard.addKey('E').on('down', () => this._handleVacuum());
+    this.input.keyboard.addKey('X').on('down', () => this._handleRegisterToggle());
   }
 
   // ─── Order panel (DOM) ────────────────────────────────────────────────────
@@ -320,10 +349,29 @@ export default class ShopScene extends Phaser.Scene {
     this._showNotification(`🏠 Нове замовлення #${orderNum}! (${n} в черзі)`);
   }
 
+  _handleVacuum() {
+    if (!GameState.hasVacuum || this.orderOpen) return;
+    this.vacuuming = !this.vacuuming;
+    if (this.vacuuming) {
+      this.registerOpen = false;
+      this.registerClosedText.setVisible(true);
+      this._showNotification('🧹 Починаю прибирання! Касу зачинено автоматично.');
+    } else {
+      this._showNotification('🧹 Прибирання зупинено.');
+    }
+  }
+
+  _handleRegisterToggle() {
+    if (this.orderOpen || this.vacuuming) return;
+    this.registerOpen = !this.registerOpen;
+    this.registerClosedText.setVisible(!this.registerOpen);
+    this._showNotification(this.registerOpen ? '💰 Касу відкрито' : '🔒 Касу зачинено');
+  }
+
   // ─── Game logic ───────────────────────────────────────────────────────────
 
   _handleEnter() {
-    if (this.orderOpen) return;
+    if (this.orderOpen || this.vacuuming) return;
     if (this._near(this.playerPos, BACKROOM_DOOR, INTERACTION_R)) {
       this.scene.switch('BackRoomScene');
       return;
@@ -334,7 +382,7 @@ export default class ShopScene extends Phaser.Scene {
   }
 
   _handleSpace() {
-    if (this.orderOpen) return;
+    if (this.orderOpen || this.vacuuming) return;
     if (this._near(this.playerPos, COMPUTER_POS, INTERACTION_R)) {
       this._openOrderPanel();
     }
@@ -404,10 +452,16 @@ export default class ShopScene extends Phaser.Scene {
     const sprite = this.add.container(ENTER_DOOR.x, ENTER_DOOR.y, [g]);
     sprite.setDepth(9);
 
+    const useSelfCheckout = !this.registerOpen || Math.random() < 0.35;
+    const scIdx = Math.floor(Math.random() * SELF_CHECKOUT.length);
+    const dest = useSelfCheckout
+      ? SELF_CHECKOUT[scIdx]
+      : { x: REGISTER_POS.x + 65, y: REGISTER_POS.y };
+
     const waypoints = [
       { x: ENTER_DOOR.x + Math.floor(Math.random() * 41) - 20, y: 620 },
       ...chosen.map(p => ({ ...PRODUCT_POS[p.id] })),
-      { x: REGISTER_POS.x + 65, y: REGISTER_POS.y },
+      dest,
     ];
 
     this.customers.push({
@@ -417,6 +471,8 @@ export default class ShopScene extends Phaser.Scene {
       scanIdx: 0,
       waypoints, wpIdx: 0,
       sprite, remove: false,
+      useSelfCheckout,
+      checkoutTimer: 2.0,
     });
     this.spawnedCount++;
   }
@@ -424,7 +480,10 @@ export default class ShopScene extends Phaser.Scene {
   _updateCustomers(dt) {
     for (const c of this.customers) {
       if (c.state === 'walking') {
-        if (c.wpIdx >= c.waypoints.length) { c.state = 'at_register'; continue; }
+        if (c.wpIdx >= c.waypoints.length) {
+          c.state = c.useSelfCheckout ? 'self_checkout' : 'at_register';
+          continue;
+        }
         const t = c.waypoints[c.wpIdx];
         const dx = t.x - c.x, dy = t.y - c.y;
         const dist = Math.hypot(dx, dy);
@@ -433,6 +492,21 @@ export default class ShopScene extends Phaser.Scene {
           c.x += (dx / dist) * CUSTOMER_SPEED * dt;
           c.y += (dy / dist) * CUSTOMER_SPEED * dt;
           c.sprite.setPosition(c.x, c.y);
+        }
+      } else if (c.state === 'self_checkout') {
+        c.checkoutTimer -= dt;
+        if (c.checkoutTimer <= 0) {
+          if (c.scanIdx < c.cart.length) {
+            const { productId, qty } = c.cart[c.scanIdx];
+            const p = PRODUCTS_MAP[productId];
+            GameState.earnings += p.supplierPrice * 0.5 * qty;
+            GameState.stock[productId] = Math.max(0, GameState.stock[productId] - qty);
+            this._refreshSlot(productId);
+            this._checkLowStock(productId);
+            c.scanIdx++;
+          }
+          if (c.scanIdx >= c.cart.length) { c.state = 'leaving'; }
+          else { c.checkoutTimer = 2.0; }
         }
       } else if (c.state === 'leaving') {
         const dx = EXIT_DOOR.x - c.x, dy = EXIT_DOOR.y - c.y;
@@ -468,13 +542,9 @@ export default class ShopScene extends Phaser.Scene {
     const atComp  = this._near(this.playerPos, COMPUTER_POS, INTERACTION_R);
     const waiting = this.customers.find(c => c.state === 'at_register');
 
-    if (atReg && waiting) {
-      const idx  = waiting.scanIdx || 0;
-      const left = waiting.cart.length - idx;
-      if (left > 0) {
-        const nextItem = PRODUCTS_MAP[waiting.cart[idx].productId].name;
-        this.hintText.setText(`ENTER — сканувати "${nextItem}" (залишилось: ${left})`);
-      }
+    if (this.vacuuming) {
+      const pct = Math.round((this.vacuumProgress / VACUUM_DURATION) * 100);
+      this.hintText.setText(`🧹 Пилосошу... ${pct}%  (E — зупинити)`);
     } else if (this._near(this.playerPos, BACKROOM_DOOR, INTERACTION_R)) {
       const n = GameState.homeOrders.length;
       this.hintText.setText(n > 0
@@ -482,6 +552,21 @@ export default class ShopScene extends Phaser.Scene {
         : 'ENTER — перейти до складу');
     } else if (atComp) {
       this.hintText.setText("ПРОБІЛ — відкрити комп'ютер замовлень");
+    } else if (atReg) {
+      if (!this.registerOpen) {
+        this.hintText.setText('Каса зачинена  |  X — відкрити');
+      } else if (waiting) {
+        const idx  = waiting.scanIdx || 0;
+        const left = waiting.cart.length - idx;
+        if (left > 0) {
+          const nextItem = PRODUCTS_MAP[waiting.cart[idx].productId].name;
+          this.hintText.setText(`ENTER — сканувати "${nextItem}" (${left})  |  X — зачинити`);
+        }
+      } else {
+        this.hintText.setText('X — зачинити касу');
+      }
+    } else if (GameState.hasVacuum && !this.vacuuming) {
+      this.hintText.setText('🧹 Маєш пилосос!  E — почати прибирання');
     } else {
       this.hintText.setText('');
     }
@@ -514,10 +599,11 @@ export default class ShopScene extends Phaser.Scene {
 
     this.gameMin += dt;
 
-    if (this._arrowKeys.left)  this.playerPos.x -= PLAYER_SPEED * dt;
-    if (this._arrowKeys.right) this.playerPos.x += PLAYER_SPEED * dt;
-    if (this._arrowKeys.up)    this.playerPos.y -= PLAYER_SPEED * dt;
-    if (this._arrowKeys.down)  this.playerPos.y += PLAYER_SPEED * dt;
+    const spd = this.vacuuming ? PLAYER_SPEED * 0.5 : PLAYER_SPEED;
+    if (this._arrowKeys.left)  this.playerPos.x -= spd * dt;
+    if (this._arrowKeys.right) this.playerPos.x += spd * dt;
+    if (this._arrowKeys.up)    this.playerPos.y -= spd * dt;
+    if (this._arrowKeys.down)  this.playerPos.y += spd * dt;
     this.playerPos.x = Phaser.Math.Clamp(this.playerPos.x, 25, 1000);
     this.playerPos.y = Phaser.Math.Clamp(this.playerPos.y, 65, 650);
     this.playerSprite.setPosition(this.playerPos.x, this.playerPos.y);
@@ -530,6 +616,25 @@ export default class ShopScene extends Phaser.Scene {
     this._updateCustomers(dt);
     this._processDeliveries();
     this._updateHUD();
+
+    // Noon reminder
+    if (!this.noonNotified && this.gameMin >= 12 * 60) {
+      this.noonNotified = true;
+      this._showNotification('🧹 Обід! Час пилососити — візьми пилосос на складі.');
+    }
+
+    // Vacuum progress
+    if (this.vacuuming) {
+      this.vacuumProgress += dt;
+      if (this.vacuumProgress >= VACUUM_DURATION) {
+        this.vacuuming      = false;
+        this.vacuumProgress = 0;
+        GameState.hasVacuum = false;
+        GameState.earnings += 2;
+        this._floatText('🧹 +2 € Прибрано!', 512, 350);
+        this._showNotification('🧹 Прибирання завершено! Відкрийте касу (X).');
+      }
+    }
 
     // Home order spawn: every 40-60 game-minutes
     this.homeOrderTimer += dt;

@@ -9,6 +9,7 @@ const CONV_Y        = 490;
 const CONV_X1       = 80;
 const CONV_X2       = 900;
 const CONV_SPD      = 75;  // px per second
+const VACUUM_POS    = { x: 140, y: 580 };
 
 // Row 1 (y=180): fridge + first shelf items
 const ROW1_IDS = ['milk','eggs','cream','cherries','bananas','bread','potato'];
@@ -29,8 +30,9 @@ export default class BackRoomScene extends Phaser.Scene {
     this.shipped      = {};   // { orderNum: { productId: count } }
     this.convTime     = 0;
     this.productSlots = {};
-    this._hintTimer   = 0;
-    this._typedNumber = '';
+    this._hintTimer     = 0;
+    this._typedNumber   = '';
+    this.carryingVacuum = false;
 
     this._drawRoom();
     this._createPlayer();
@@ -47,7 +49,10 @@ export default class BackRoomScene extends Phaser.Scene {
       this.convItems = [];
       this.shipped = {};
       this._hintTimer = 0;
-      this._typedNumber = '';
+      this._typedNumber   = '';
+      this.carryingVacuum = false;
+      this.vacuumCarryText.setVisible(false);
+      this.vacuumObj.setVisible(!GameState.hasVacuum);
       this._updateNumberInput();
       this._refreshOrderDisplay();
     });
@@ -97,6 +102,19 @@ export default class BackRoomScene extends Phaser.Scene {
     g.lineStyle(2, 0xFFD700, 0.6); g.strokeRect(bx, CONV_Y - 22, 56, 56);
     this.add.text(bx + 28, CONV_Y - 34, '📦 ВІДПРАВКА',
       { fontSize: '10px', color: '#FFD700', fontStyle: 'bold' }).setOrigin(0.5).setDepth(5);
+
+    // Vacuum cleaner storage spot
+    g.fillStyle(0x2A2A2A); g.fillRect(VACUUM_POS.x - 26, VACUUM_POS.y - 26, 52, 52);
+    g.lineStyle(2, 0xFF6600); g.strokeRect(VACUUM_POS.x - 26, VACUUM_POS.y - 26, 52, 52);
+
+    const vacG = this.add.graphics().setDepth(4);
+    vacG.fillStyle(0xFF6600); vacG.fillRoundedRect(-14, -18, 28, 32, 5);
+    vacG.fillStyle(0xCC4400); vacG.fillRect(12, -5, 22, 5);
+    vacG.fillStyle(0x884400); vacG.fillCircle(0, 18, 7);
+    const vacT = this.add.text(0, -30, '🧹 ПИЛОСОС',
+      { fontSize: '9px', color: '#FFD700', fontStyle: 'bold' }).setOrigin(0.5).setDepth(5);
+    this.vacuumObj = this.add.container(VACUUM_POS.x, VACUUM_POS.y, [vacG, vacT]).setDepth(4);
+    this.vacuumObj.setVisible(!GameState.hasVacuum);
 
     // Exit door
     g.fillStyle(0x3A6A2A); g.fillRect(EXIT_DOOR.x - 28, EXIT_DOOR.y - 40, 56, 72);
@@ -193,6 +211,11 @@ export default class BackRoomScene extends Phaser.Scene {
     this.hintText = this.add.text(512, 672, '',
       { fontSize: '14px', color: '#FFFF44', backgroundColor: '#00000099',
         padding: { x: 10, y: 4 } }).setOrigin(0.5).setDepth(22);
+
+    this.vacuumCarryText = this.add.text(512, 460, '🧹 Несеш пилосос!',
+      { fontSize: '16px', color: '#FF8833', fontStyle: 'bold',
+        backgroundColor: '#000000CC', padding: { x: 10, y: 6 } })
+      .setOrigin(0.5).setDepth(24).setVisible(false);
   }
 
   // ─── Input ────────────────────────────────────────────────────────────────
@@ -244,6 +267,24 @@ export default class BackRoomScene extends Phaser.Scene {
     // Exit back to shop
     if (this._near(this.playerPos, EXIT_DOOR, INTERACTION_R)) {
       this._exitToShop();
+      return;
+    }
+
+    // Vacuum pickup / return
+    if (this._near(this.playerPos, VACUUM_POS, INTERACTION_R)) {
+      if (!this.carryingVacuum && !this.carrying && !GameState.hasVacuum) {
+        this.carryingVacuum = true;
+        this.vacuumObj.setVisible(false);
+        this.vacuumCarryText.setVisible(true);
+        this._showHint('Взяв пилосос! Іди до виходу.');
+      } else if (this.carryingVacuum) {
+        this.carryingVacuum = false;
+        this.vacuumObj.setVisible(true);
+        this.vacuumCarryText.setVisible(false);
+        this._showHint('Пилосос повернуто на місце.');
+      } else if (GameState.hasVacuum) {
+        this._showHint('Пилосос зараз у магазині.');
+      }
       return;
     }
 
@@ -326,6 +367,11 @@ export default class BackRoomScene extends Phaser.Scene {
     if (this.carrying) {
       GameState.stock[this.carrying.productId]++;
       this.carrying = null;
+    }
+    if (this.carryingVacuum) {
+      GameState.hasVacuum = true;
+      this.carryingVacuum = false;
+      this.vacuumCarryText.setVisible(false);
     }
     this.scene.switch('ShopScene');
   }
@@ -491,7 +537,19 @@ export default class BackRoomScene extends Phaser.Scene {
 
   _updateHint() {
     if (this._near(this.playerPos, EXIT_DOOR, INTERACTION_R)) {
-      this.hintText.setText('ENTER — повернутись до магазину');
+      this.hintText.setText(this.carryingVacuum
+        ? 'ENTER — піти до магазину з пилосос'
+        : 'ENTER — повернутись до магазину');
+      return;
+    }
+    if (this._near(this.playerPos, VACUUM_POS, INTERACTION_R)) {
+      if (GameState.hasVacuum) {
+        this.hintText.setText('Пилосос зараз у магазині');
+      } else if (this.carryingVacuum) {
+        this.hintText.setText('ENTER — повернути пилосос на місце');
+      } else {
+        this.hintText.setText('ENTER — взяти пилосос');
+      }
       return;
     }
     const orders = GameState.homeOrders;

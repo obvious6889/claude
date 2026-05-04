@@ -18,6 +18,7 @@ export const GameState = {
   homeOrders: [],
   nextOrderNumber: 1,
   hasVacuum: false,
+  hasCashier: false,
 };
 
 PRODUCTS.forEach(p => {
@@ -32,6 +33,7 @@ export function resetForLevel(level) {
   GameState.pendingStock = {};
   GameState.homeOrders = [];
   GameState.nextOrderNumber = 1;
-  GameState.hasVacuum = false;
+  GameState.hasVacuum  = false;
+  GameState.hasCashier = false;
   PRODUCTS.forEach(p => { GameState.stock[p.id] = 20; });
 }

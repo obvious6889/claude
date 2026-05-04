@@ -52,6 +52,7 @@ export default class ShopScene extends Phaser.Scene {
     this._resetState();
     this._drawStore();
     this._createPlayer();
+    this._createCashier();
     this._createHUD();
     this._setupInput();
     this._setupOrderPanel();
@@ -61,6 +62,7 @@ export default class ShopScene extends Phaser.Scene {
       this._arrowKeys.up   = this._arrowKeys.down  = false;
       this.vacuuming = false;
       this.registerClosedText.setVisible(!this.registerOpen);
+      this.cashierSprite.setVisible(GameState.hasCashier);
       const n = GameState.homeOrders.length;
       this.backroomBadge.setText(n > 0 ? `${n}` : '').setVisible(n > 0);
       this.cameras.main.fadeIn(300);
@@ -84,6 +86,8 @@ export default class ShopScene extends Phaser.Scene {
     this.vacuuming        = false;
     this.vacuumProgress   = 0;
     this.noonNotified     = false;
+    this._cashierTimer    = 0;
+    this._dayEnding       = false;
   }
 
   // ─── Human sprite helper ──────────────────────────────────────────────────
@@ -201,6 +205,17 @@ export default class ShopScene extends Phaser.Scene {
     this.playerPos = { x: PLAYER_START.x, y: PLAYER_START.y };
   }
 
+  // ─── Cashier ──────────────────────────────────────────────────────────────
+
+  _createCashier() {
+    const g = this.add.graphics();
+    this._drawHuman(g, { shirt: 0x228B22, pants: 0x1A2E1A, skin: 0xFFCC99, hair: 0x333333 });
+    g.fillStyle(0xFFFFFF); g.fillRect(-9, -16, 18, 28); // apron
+    g.fillStyle(0xDDDDDD); g.fillRect(-6, -26, 12, 10);
+    this.cashierSprite = this.add.container(REGISTER_POS.x + 42, REGISTER_POS.y - 12, [g])
+      .setDepth(9).setVisible(GameState.hasCashier);
+  }
+
   // ─── HUD ──────────────────────────────────────────────────────────────────
 
   _createHUD() {
@@ -227,6 +242,9 @@ export default class ShopScene extends Phaser.Scene {
       { fontSize: '22px', color: '#00FF88', fontStyle: 'bold' }).setOrigin(1, 0).setDepth(21);
     this.add.text(1014, 36, 'Заробіток',
       { fontSize: '10px', color: '#aaa' }).setOrigin(1, 0).setDepth(21);
+
+    this.cashierHudText = this.add.text(700, 36, '',
+      { fontSize: '10px', color: '#88FF88' }).setDepth(21);
 
     const pbG = this.add.graphics().setDepth(21);
     pbG.fillStyle(0x333333); pbG.fillRect(810, 22, 140, 10);
@@ -270,6 +288,7 @@ export default class ShopScene extends Phaser.Scene {
     this.input.keyboard.addKey('ESC').on('down', () => this._closeOrderPanel());
     this.input.keyboard.addKey('E').on('down', () => this._handleVacuum());
     this.input.keyboard.addKey('X').on('down', () => this._handleRegisterToggle());
+    this.input.keyboard.addKey('H').on('down', () => this._handleCashierToggle());
   }
 
   // ─── Order panel (DOM) ────────────────────────────────────────────────────
@@ -368,6 +387,16 @@ export default class ShopScene extends Phaser.Scene {
     this._showNotification(this.registerOpen ? '💰 Касу відкрито' : '🔒 Касу зачинено');
   }
 
+  _handleCashierToggle() {
+    if (this.orderOpen || this.vacuuming) return;
+    if (!this._near(this.playerPos, COMPUTER_POS, INTERACTION_R)) return;
+    GameState.hasCashier = !GameState.hasCashier;
+    this.cashierSprite.setVisible(GameState.hasCashier);
+    this._showNotification(GameState.hasCashier
+      ? '👔 Касира найнято! Зарплата −10 € наприкінці дня.'
+      : '👔 Касира звільнено.');
+  }
+
   // ─── Game logic ───────────────────────────────────────────────────────────
 
   _handleEnter() {
@@ -388,7 +417,7 @@ export default class ShopScene extends Phaser.Scene {
     }
   }
 
-  _scanOneItem() {
+  _scanOneItem(byCashier = false) {
     const c = this.customers.find(c => c.state === 'at_register');
     if (!c) return;
 
@@ -403,7 +432,9 @@ export default class ShopScene extends Phaser.Scene {
     GameState.stock[productId] = Math.max(0, GameState.stock[productId] - qty);
     this._refreshSlot(productId);
     this._checkLowStock(productId);
-    this._floatText(`+${earned.toFixed(2)} € (${p.name})`, REGISTER_POS.x, REGISTER_POS.y - 30);
+
+    const label = byCashier ? `👔 ${earned.toFixed(2)} €` : `+${earned.toFixed(2)} € (${p.name})`;
+    this._floatText(label, REGISTER_POS.x, REGISTER_POS.y - 30);
 
     c.scanIdx++;
     if (c.scanIdx >= c.cart.length) c.state = 'leaving';
@@ -528,6 +559,7 @@ export default class ShopScene extends Phaser.Scene {
     const h = Math.floor(this.gameMin / 60), m = Math.floor(this.gameMin) % 60;
     this.clockText.setText(`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`);
     this.earningsText.setText(`${GameState.earnings.toFixed(2)} €`);
+    this.cashierHudText.setText(GameState.hasCashier ? '👔 Касир  −10€/день' : '');
     this.dayText.setText(`День ${GameState.day}`);
 
     const goal = LEVEL_CONFIG[GameState.level].goal;
@@ -551,7 +583,8 @@ export default class ShopScene extends Phaser.Scene {
         ? `ENTER — перейти до складу (${n} замовлень)`
         : 'ENTER — перейти до складу');
     } else if (atComp) {
-      this.hintText.setText("ПРОБІЛ — відкрити комп'ютер замовлень");
+      const cashierAction = GameState.hasCashier ? 'H — звільнити касира' : 'H — найняти касира (10€/день)';
+      this.hintText.setText(`ПРОБІЛ — замовлення  |  ${cashierAction}`);
     } else if (atReg) {
       if (!this.registerOpen) {
         this.hintText.setText('Каса зачинена  |  X — відкрити');
@@ -636,6 +669,15 @@ export default class ShopScene extends Phaser.Scene {
       }
     }
 
+    // Cashier auto-scan (every 3 real seconds)
+    if (GameState.hasCashier && this.registerOpen) {
+      this._cashierTimer += dt;
+      if (this._cashierTimer >= 3) {
+        this._cashierTimer = 0;
+        this._scanOneItem(true);
+      }
+    }
+
     // Home order spawn: every 40-60 game-minutes
     this.homeOrderTimer += dt;
     if (this.homeOrderTimer >= this._nextHomeOrderIn) {
@@ -644,7 +686,12 @@ export default class ShopScene extends Phaser.Scene {
       this._spawnHomeOrder();
     }
 
-    if (this.gameMin >= 20 * 60) {
+    if (this.gameMin >= 20 * 60 && !this._dayEnding) {
+      this._dayEnding = true;
+      if (GameState.hasCashier) {
+        GameState.earnings -= 10;
+        this._showNotification('👔 Зарплата касира: −10 €');
+      }
       document.getElementById('notification').style.display = 'none';
       document.getElementById('order-panel').style.display = 'none';
       GameState.day++;

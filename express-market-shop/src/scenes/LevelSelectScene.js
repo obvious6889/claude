@@ -1,5 +1,7 @@
 import { GameState, LEVEL_CONFIG, resetForLevel } from '../state.js';
 
+const JOB_LABELS = { shop: '🛒 Магазин', construction: '🏗 Будівництво', restaurant: '🍽 Ресторан' };
+
 export default class LevelSelectScene extends Phaser.Scene {
   constructor() { super({ key: 'LevelSelectScene' }); }
 
@@ -7,10 +9,21 @@ export default class LevelSelectScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor(0x1a1a2e);
     this.cameras.main.fadeIn(400);
 
-    this.add.text(512, 50, '🛒 Експрес Маркет Магазин',
+    const jobLabel = JOB_LABELS[GameState.job] || '🎮 Гра';
+    this.add.text(512, 50, jobLabel,
       { fontSize: '32px', color: '#FFD700', fontStyle: 'bold' }).setOrigin(0.5);
     this.add.text(512, 100, 'Оберіть рівень',
       { fontSize: '22px', color: '#AACCFF' }).setOrigin(0.5);
+
+    const changeBtn = this.add.text(512, 136, '↩ змінити роботу',
+      { fontSize: '14px', color: '#6688AA' }).setOrigin(0.5).setInteractive();
+    changeBtn.on('pointerover', () => changeBtn.setStyle({ color: '#AACCFF' }));
+    changeBtn.on('pointerout',  () => changeBtn.setStyle({ color: '#6688AA' }));
+    changeBtn.on('pointerdown', () => {
+      GameState.job = null;
+      this.cameras.main.fadeOut(300, 0, 0, 0);
+      this.time.delayedCall(300, () => this.scene.start('JobSelectScene'));
+    });
 
     const levels = [
       { n: 1, desc: 'Маленький магазин' },

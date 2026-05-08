@@ -56,6 +56,7 @@ export default class ShopScene extends Phaser.Scene {
     this._createHUD();
     this._setupInput();
     this._setupOrderPanel();
+    this._setupPricePanel();
     this.cameras.main.fadeIn(400);
     this.events.on('wake', () => {
       this._arrowKeys.left = this._arrowKeys.right =
@@ -178,9 +179,9 @@ export default class ShopScene extends Phaser.Scene {
       const pos = PRODUCT_POS[p.id];
       const slotG = this.add.graphics();
       slotG.fillStyle(p.zone === 'fridge' ? 0xCCE8FF : 0xFFF8E8);
-      slotG.fillRoundedRect(pos.x - 34, pos.y - 32, 68, 60, 6);
+      slotG.fillRoundedRect(pos.x - 34, pos.y - 32, 68, 72, 6);
       slotG.lineStyle(2, p.color);
-      slotG.strokeRoundedRect(pos.x - 34, pos.y - 32, 68, 60, 6);
+      slotG.strokeRoundedRect(pos.x - 34, pos.y - 32, 68, 72, 6);
 
       this.add.rectangle(pos.x, pos.y - 10, 44, 26, p.color);
       this.add.text(pos.x, pos.y + 14, p.name,
@@ -188,7 +189,9 @@ export default class ShopScene extends Phaser.Scene {
 
       const stockText = this.add.text(pos.x, pos.y - 34, `${GameState.stock[p.id]}`,
         { fontSize: '11px', color: '#006600', fontStyle: 'bold' }).setOrigin(0.5);
-      this.productSlots[p.id] = { stockText, pos };
+      const priceText = this.add.text(pos.x, pos.y + 29, `${GameState.prices[p.id].toFixed(2)}€`,
+        { fontSize: '9px', color: '#0055AA', fontStyle: 'bold' }).setOrigin(0.5, 0);
+      this.productSlots[p.id] = { stockText, priceText, pos };
     });
   }
 
@@ -289,6 +292,7 @@ export default class ShopScene extends Phaser.Scene {
     this.input.keyboard.addKey('E').on('down', () => this._handleVacuum());
     this.input.keyboard.addKey('X').on('down', () => this._handleRegisterToggle());
     this.input.keyboard.addKey('H').on('down', () => this._handleCashierToggle());
+    this.input.keyboard.addKey('P').on('down', () => this._handlePriceToggle());
   }
 
   // ─── Order panel (DOM) ────────────────────────────────────────────────────
@@ -306,7 +310,7 @@ export default class ShopScene extends Phaser.Scene {
     const grid = document.getElementById('order-grid');
     grid.innerHTML = '';
     PRODUCTS.forEach(p => {
-      const sellPrice = (p.supplierPrice * 1.5).toFixed(2);
+      const sellPrice = GameState.prices[p.id].toFixed(2);
       const div = document.createElement('div');
       div.className = 'order-item';
       div.innerHTML = `
@@ -334,6 +338,7 @@ export default class ShopScene extends Phaser.Scene {
   _closeOrderPanel() {
     this.orderOpen = false;
     document.getElementById('order-panel').style.display = 'none';
+    document.getElementById('price-panel').style.display = 'none';
     document.activeElement?.blur();
     this._arrowKeys.left = this._arrowKeys.right =
     this._arrowKeys.up   = this._arrowKeys.down  = false;
@@ -353,6 +358,66 @@ export default class ShopScene extends Phaser.Scene {
     this._closeOrderPanel();
   }
 
+  // ─── Price panel (DOM) ────────────────────────────────────────────────────
+
+  _setupPricePanel() {
+    document.getElementById('btn-close-prices').addEventListener('click', () => this._closeOrderPanel());
+  }
+
+  _handlePriceToggle() {
+    if (this.vacuuming) return;
+    if (!this._near(this.playerPos, COMPUTER_POS, INTERACTION_R)) return;
+    if (this.orderOpen) { this._closeOrderPanel(); return; }
+    this._openPricePanel();
+  }
+
+  _openPricePanel() {
+    this.orderOpen = true;
+    const grid = document.getElementById('price-grid');
+    grid.innerHTML = '';
+    PRODUCTS.forEach(p => {
+      const markup = Math.round((GameState.prices[p.id] / p.supplierPrice - 1) * 100);
+      const markupColor = markup > 100 ? '#FF6644' : markup > 60 ? '#FFD700' : '#88FF88';
+      const div = document.createElement('div');
+      div.className = 'order-item';
+      div.innerHTML = `
+        <div class="prod-name">${p.name}</div>
+        <div class="prod-stock">Собівартість: ${p.supplierPrice.toFixed(2)}€</div>
+        <div class="price-markup" id="markup-${p.id}" style="color:${markupColor}">Наценка: +${markup}%</div>
+        <div class="qty-control">
+          <button class="price-btn" data-id="${p.id}" data-action="minus">−</button>
+          <span class="qty-display" id="price-${p.id}">${GameState.prices[p.id].toFixed(2)}€</span>
+          <button class="price-btn" data-id="${p.id}" data-action="plus">+</button>
+        </div>`;
+      grid.appendChild(div);
+    });
+    grid.querySelectorAll('.price-btn').forEach(btn => {
+      btn.addEventListener('click', e => {
+        const id = e.currentTarget.dataset.id;
+        const p  = PRODUCTS_MAP[id];
+        const delta  = e.currentTarget.dataset.action === 'plus' ? 0.10 : -0.10;
+        const minPrice = parseFloat((p.supplierPrice + 0.10).toFixed(2));
+        GameState.prices[id] = Math.max(minPrice,
+          parseFloat((GameState.prices[id] + delta).toFixed(2)));
+        document.getElementById(`price-${id}`).textContent = `${GameState.prices[id].toFixed(2)}€`;
+        const markup = Math.round((GameState.prices[id] / p.supplierPrice - 1) * 100);
+        const color  = markup > 100 ? '#FF6644' : markup > 60 ? '#FFD700' : '#88FF88';
+        const el = document.getElementById(`markup-${id}`);
+        el.textContent = `Наценка: +${markup}%`;
+        el.style.color = color;
+        this._refreshPriceSlot(id);
+      });
+    });
+    document.getElementById('price-panel').style.display = 'block';
+  }
+
+  _refreshPriceSlot(id) {
+    const slot = this.productSlots[id];
+    if (slot?.priceText) slot.priceText.setText(`${GameState.prices[id].toFixed(2)}€`);
+  }
+
+  // ─── Home orders ──────────────────────────────────────────────────────────
+
   _spawnHomeOrder() {
     const available = PRODUCTS.filter(p => GameState.stock[p.id] > 0);
     if (available.length === 0) return;
@@ -360,13 +425,18 @@ export default class ShopScene extends Phaser.Scene {
     const shuffled = [...available].sort(() => Math.random() - 0.5);
     const chosen   = shuffled.slice(0, numItems);
     const items    = chosen.map(p => ({ productId: p.id, qty: 1 }));
-    const earn     = items.reduce((s, i) => s + PRODUCTS_MAP[i.productId].supplierPrice * 0.75, 0);
+    const earn     = items.reduce((s, i) => {
+      const p = PRODUCTS_MAP[i.productId];
+      return s + (GameState.prices[i.productId] - p.supplierPrice) * i.qty;
+    }, 0);
     const orderNum = ++_orderSeq;
     GameState.homeOrders.push({ items, earn, orderNum });
     const n = GameState.homeOrders.length;
     this.backroomBadge.setText(`${n}`).setVisible(true);
     this._showNotification(`🏠 Нове замовлення #${orderNum}! (${n} в черзі)`);
   }
+
+  // ─── Action handlers ──────────────────────────────────────────────────────
 
   _handleVacuum() {
     if (!GameState.hasVacuum || this.orderOpen) return;
@@ -401,6 +471,17 @@ export default class ShopScene extends Phaser.Scene {
 
   _handleEnter() {
     if (this.orderOpen || this.vacuuming) return;
+
+    // Catch shoplifter
+    const thief = this.customers.find(c =>
+      c.isShoplifter && c.state !== 'leaving_caught' &&
+      Math.hypot(c.x - this.playerPos.x, c.y - this.playerPos.y) < INTERACTION_R
+    );
+    if (thief) {
+      this._catchShoplifter(thief);
+      return;
+    }
+
     if (this._near(this.playerPos, BACKROOM_DOOR, INTERACTION_R)) {
       this.scene.switch('BackRoomScene');
       return;
@@ -417,6 +498,17 @@ export default class ShopScene extends Phaser.Scene {
     }
   }
 
+  _catchShoplifter(c) {
+    if (c.stolen) {
+      GameState.stock[c.stolenProduct] = Math.min(
+        GameState.stock[c.stolenProduct] + 1, 999);
+      this._refreshSlot(c.stolenProduct);
+    }
+    c.state = 'leaving_caught';
+    this._floatText('🚔 Злодія спіймано!', c.x, c.y - 40);
+    this._showNotification('🚔 Злодія спіймано! Товар повернено.');
+  }
+
   _scanOneItem(byCashier = false) {
     const c = this.customers.find(c => c.state === 'at_register');
     if (!c) return;
@@ -426,7 +518,7 @@ export default class ShopScene extends Phaser.Scene {
 
     const { productId, qty } = c.cart[c.scanIdx];
     const p = PRODUCTS_MAP[productId];
-    const earned = p.supplierPrice * 0.5 * qty;
+    const earned = (GameState.prices[productId] - p.supplierPrice) * qty;
 
     GameState.earnings += earned;
     GameState.stock[productId] = Math.max(0, GameState.stock[productId] - qty);
@@ -471,40 +563,81 @@ export default class ShopScene extends Phaser.Scene {
   _spawnCustomer() {
     const maxCustomers = LEVEL_CONFIG[GameState.level].customers;
     if (this.spawnedCount >= maxCustomers) return;
-    const available = PRODUCTS.filter(p => GameState.stock[p.id] > 0);
+
+    // Price-sensitive product selection
+    const available = PRODUCTS.filter(p => {
+      if (GameState.stock[p.id] <= 0) return false;
+      const markup = GameState.prices[p.id] / p.supplierPrice;
+      if (markup > 2.5 && Math.random() < 0.75) return false;
+      if (markup > 2.0 && Math.random() < 0.45) return false;
+      return true;
+    });
     if (available.length === 0) return;
 
+    const isShoplifter = Math.random() < 0.12;
     const numItems = 1 + Math.floor(Math.random() * Math.min(3, available.length));
     const chosen   = [...available].sort(() => Math.random() - 0.5).slice(0, numItems);
     const variant  = CUSTOMER_VARIANTS[this.spawnedCount % CUSTOMER_VARIANTS.length];
 
     const g = this.add.graphics();
-    this._drawHuman(g, variant);
+    if (isShoplifter) {
+      // Dark hooded figure
+      this._drawHuman(g, { shirt: 0x2A2A2A, pants: 0x111111, skin: 0xCC9966, hair: 0x111111 });
+      g.fillStyle(0x1A1A1A);
+      g.fillCircle(0, -44, 16);
+      g.fillTriangle(-16, -36, 16, -36, 0, -18);
+    } else {
+      this._drawHuman(g, variant);
+    }
     const sprite = this.add.container(ENTER_DOOR.x, ENTER_DOOR.y, [g]);
     sprite.setDepth(9);
 
-    const useSelfCheckout = !this.registerOpen || Math.random() < 0.35;
-    const scIdx = Math.floor(Math.random() * SELF_CHECKOUT.length);
-    const dest = useSelfCheckout
-      ? SELF_CHECKOUT[scIdx]
-      : { x: REGISTER_POS.x + 65, y: REGISTER_POS.y };
+    if (isShoplifter) {
+      // Shoplifter only grabs one item and heads straight for the exit
+      const target = chosen[0];
+      const waypoints = [
+        { x: ENTER_DOOR.x + Math.floor(Math.random() * 41) - 20, y: 620 },
+        { ...PRODUCT_POS[target.id] },
+      ];
+      this.customers.push({
+        x: ENTER_DOOR.x, y: ENTER_DOOR.y,
+        state: 'walking',
+        cart: [{ productId: target.id, qty: 1 }],
+        scanIdx: 0,
+        waypoints, wpIdx: 0,
+        sprite, remove: false,
+        isShoplifter: true,
+        stolen: false,
+        stolenProduct: target.id,
+        stealTimer: 1.2,
+        checkoutTimer: 0,
+        useSelfCheckout: false,
+      });
+    } else {
+      const useSelfCheckout = !this.registerOpen || Math.random() < 0.35;
+      const scIdx = Math.floor(Math.random() * SELF_CHECKOUT.length);
+      const dest = useSelfCheckout
+        ? SELF_CHECKOUT[scIdx]
+        : { x: REGISTER_POS.x + 65, y: REGISTER_POS.y };
 
-    const waypoints = [
-      { x: ENTER_DOOR.x + Math.floor(Math.random() * 41) - 20, y: 620 },
-      ...chosen.map(p => ({ ...PRODUCT_POS[p.id] })),
-      dest,
-    ];
+      const waypoints = [
+        { x: ENTER_DOOR.x + Math.floor(Math.random() * 41) - 20, y: 620 },
+        ...chosen.map(p => ({ ...PRODUCT_POS[p.id] })),
+        dest,
+      ];
 
-    this.customers.push({
-      x: ENTER_DOOR.x, y: ENTER_DOOR.y,
-      state: 'walking',
-      cart: chosen.map(p => ({ productId: p.id, qty: 1 })),
-      scanIdx: 0,
-      waypoints, wpIdx: 0,
-      sprite, remove: false,
-      useSelfCheckout,
-      checkoutTimer: 2.0,
-    });
+      this.customers.push({
+        x: ENTER_DOOR.x, y: ENTER_DOOR.y,
+        state: 'walking',
+        cart: chosen.map(p => ({ productId: p.id, qty: 1 })),
+        scanIdx: 0,
+        waypoints, wpIdx: 0,
+        sprite, remove: false,
+        useSelfCheckout,
+        checkoutTimer: 2.0,
+        isShoplifter: false,
+      });
+    }
     this.spawnedCount++;
   }
 
@@ -512,7 +645,11 @@ export default class ShopScene extends Phaser.Scene {
     for (const c of this.customers) {
       if (c.state === 'walking') {
         if (c.wpIdx >= c.waypoints.length) {
-          c.state = c.useSelfCheckout ? 'self_checkout' : 'at_register';
+          if (c.isShoplifter) {
+            c.state = 'stealing';
+          } else {
+            c.state = c.useSelfCheckout ? 'self_checkout' : 'at_register';
+          }
           continue;
         }
         const t = c.waypoints[c.wpIdx];
@@ -524,13 +661,36 @@ export default class ShopScene extends Phaser.Scene {
           c.y += (dy / dist) * CUSTOMER_SPEED * dt;
           c.sprite.setPosition(c.x, c.y);
         }
+
+      } else if (c.state === 'stealing') {
+        // Take the product silently, then leave
+        if (!c.stolen) {
+          c.stolen = true;
+          GameState.stock[c.stolenProduct] = Math.max(0, GameState.stock[c.stolenProduct] - 1);
+          this._refreshSlot(c.stolenProduct);
+          this._checkLowStock(c.stolenProduct);
+        }
+        c.stealTimer -= dt;
+        if (c.stealTimer <= 0) c.state = 'leaving';
+
+      } else if (c.state === 'leaving_caught') {
+        // Flee to exit at double speed
+        const dx = EXIT_DOOR.x - c.x, dy = EXIT_DOOR.y - c.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist < 8) { c.sprite.destroy(); c.remove = true; }
+        else {
+          c.x += (dx / dist) * CUSTOMER_SPEED * 2.2 * dt;
+          c.y += (dy / dist) * CUSTOMER_SPEED * 2.2 * dt;
+          c.sprite.setPosition(c.x, c.y);
+        }
+
       } else if (c.state === 'self_checkout') {
         c.checkoutTimer -= dt;
         if (c.checkoutTimer <= 0) {
           if (c.scanIdx < c.cart.length) {
             const { productId, qty } = c.cart[c.scanIdx];
             const p = PRODUCTS_MAP[productId];
-            GameState.earnings += p.supplierPrice * 0.5 * qty;
+            GameState.earnings += (GameState.prices[productId] - p.supplierPrice) * qty;
             GameState.stock[productId] = Math.max(0, GameState.stock[productId] - qty);
             this._refreshSlot(productId);
             this._checkLowStock(productId);
@@ -540,6 +700,14 @@ export default class ShopScene extends Phaser.Scene {
           else { c.checkoutTimer = 2.0; }
         }
       } else if (c.state === 'leaving') {
+        if (c.isShoplifter && c.stolen) {
+          // Notify once when uncaught thief reaches exit
+          const dist = Math.hypot(c.x - EXIT_DOOR.x, c.y - EXIT_DOOR.y);
+          if (dist < 30 && !c.notifiedSteal) {
+            c.notifiedSteal = true;
+            this._showNotification(`🦹 Крадіжка! ${PRODUCTS_MAP[c.stolenProduct].name} вкрадено.`);
+          }
+        }
         const dx = EXIT_DOOR.x - c.x, dy = EXIT_DOOR.y - c.y;
         const dist = Math.hypot(dx, dy);
         if (dist < 8) { c.sprite.destroy(); c.remove = true; }
@@ -574,7 +742,15 @@ export default class ShopScene extends Phaser.Scene {
     const atComp  = this._near(this.playerPos, COMPUTER_POS, INTERACTION_R);
     const waiting = this.customers.find(c => c.state === 'at_register');
 
-    if (this.vacuuming) {
+    // Nearby shoplifter check
+    const nearThief = this.customers.find(c =>
+      c.isShoplifter && c.state !== 'leaving_caught' &&
+      Math.hypot(c.x - this.playerPos.x, c.y - this.playerPos.y) < INTERACTION_R
+    );
+
+    if (nearThief) {
+      this.hintText.setText('⚠ ЗЛОДІЙ ПОРУЧ!  ENTER — зловити');
+    } else if (this.vacuuming) {
       const pct = Math.round((this.vacuumProgress / VACUUM_DURATION) * 100);
       this.hintText.setText(`🧹 Пилосошу... ${pct}%  (E — зупинити)`);
     } else if (this._near(this.playerPos, BACKROOM_DOOR, INTERACTION_R)) {
@@ -583,8 +759,8 @@ export default class ShopScene extends Phaser.Scene {
         ? `ENTER — перейти до складу (${n} замовлень)`
         : 'ENTER — перейти до складу');
     } else if (atComp) {
-      const cashierAction = GameState.hasCashier ? 'H — звільнити касира' : 'H — найняти касира (10€/день)';
-      this.hintText.setText(`ПРОБІЛ — замовлення  |  ${cashierAction}`);
+      const cashierAction = GameState.hasCashier ? 'H — звільнити касира' : 'H — найняти (10€/день)';
+      this.hintText.setText(`ПРОБІЛ — замовлення  |  P — ціни  |  ${cashierAction}`);
     } else if (atReg) {
       if (!this.registerOpen) {
         this.hintText.setText('Каса зачинена  |  X — відкрити');
@@ -694,6 +870,7 @@ export default class ShopScene extends Phaser.Scene {
       }
       document.getElementById('notification').style.display = 'none';
       document.getElementById('order-panel').style.display = 'none';
+      document.getElementById('price-panel').style.display = 'none';
       GameState.day++;
       this.cameras.main.fadeOut(600, 0, 0, 0);
       this.time.delayedCall(600, () => this.scene.start('CommuteScene', { destination: 'home' }));

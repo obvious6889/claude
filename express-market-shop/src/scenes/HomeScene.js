@@ -21,8 +21,7 @@ export default class HomeScene extends Phaser.Scene {
     this._setupInput();
     this.cameras.main.fadeIn(500);
 
-    const goal = LEVEL_CONFIG[GameState.level].goal;
-    if (GameState.earnings >= goal) this._showWin();
+    // Win is handled in HomeBuildScene (morning)
   }
 
   // ─── Room drawing ─────────────────────────────────────────────────────────
@@ -112,7 +111,7 @@ export default class HomeScene extends Phaser.Scene {
     const g = this.add.graphics().setDepth(20);
     g.fillStyle(0x1a1a2e, 0.92); g.fillRect(0, 0, 1024, 56);
 
-    this.add.text(14, 10, `🏠 Рівень ${GameState.level} — Ніч.`,
+    this.add.text(14, 10, `🌙 Дача — Ніч, День ${GameState.day - 1}`,
       { fontSize: '18px', color: '#AACCFF', fontStyle: 'bold' }).setDepth(21);
 
     this.add.text(512, 10, `День ${GameState.day - 1} завершено!`,
@@ -150,7 +149,7 @@ export default class HomeScene extends Phaser.Scene {
       this.sleeping = true;
       this.hintText.setText('💤 Добраніч...');
       this.cameras.main.fadeOut(800, 0, 0, 0);
-      this.time.delayedCall(800, () => this.scene.start('CommuteScene', { destination: 'shop' }));
+      this.time.delayedCall(800, () => this.scene.start('HomeBuildScene'));
     }
   }
 
@@ -202,8 +201,7 @@ export default class HomeScene extends Phaser.Scene {
   // ─── Update ───────────────────────────────────────────────────────────────
 
   update(time, delta) {
-    const goal = LEVEL_CONFIG[GameState.level].goal;
-    if (GameState.earnings >= goal || this.sleeping) return;
+    if (this.sleeping) return;
     const dt = delta / 1000;
 
     const { left, right, up, down } = this.cursors;
@@ -230,7 +228,7 @@ export default class HomeScene extends Phaser.Scene {
     if (this.nightMin >= 27 * 60) {
       this.sleeping = true;
       this.cameras.main.fadeOut(600, 0, 0, 0);
-      this.time.delayedCall(600, () => this.scene.start('CommuteScene', { destination: 'shop' }));
+      this.time.delayedCall(600, () => this.scene.start('HomeBuildScene'));
     }
   }
 }

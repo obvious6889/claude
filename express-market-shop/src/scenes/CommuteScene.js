@@ -1,5 +1,7 @@
 import { GameState } from '../state.js';
 
+const JOB_SCENES = { shop: 'ShopScene', construction: 'ConstructionScene', restaurant: 'RestaurantScene' };
+
 const WORLD_W  = 2500;
 const WORLD_H  = 700;
 const ROAD_R   = 46;   // road half-width
@@ -9,6 +11,9 @@ const ACCEL    = 290;
 const BRAKE    = 340;
 const FRICTION = 210;
 const TURN_SPD = 150;  // degrees/second
+
+// Building materials store — sits above bottom-left road segment
+const STORE_POS = { x: 420, y: 530 };
 
 // Road path — left end = home/dacha, right end = shop
 const ROAD = [
@@ -41,9 +46,12 @@ export default class CommuteScene extends Phaser.Scene {
 
     this.cameras.main.setBounds(0, 0, WORLD_W, WORLD_H);
 
+    this.stoppedAtStore = false;
+
     this._drawWorld();
     this._createCar();
     this._createHUD();
+    this._drawMaterialsStore();
 
     this.cameras.main.startFollow(this.carObj, true, 0.1, 0.1);
 
@@ -139,6 +147,34 @@ export default class CommuteScene extends Phaser.Scene {
     // Destination pulse
     g.fillStyle(0x00FF88, 0.30); g.fillCircle(dest.x, dest.y, 60);
     g.fillStyle(0x00FF88, 0.65); g.fillCircle(dest.x, dest.y, 22);
+  }
+
+  _drawMaterialsStore() {
+    if (!this.goingHome) return;
+    const g = this.add.graphics();
+    const sx = STORE_POS.x, sy = STORE_POS.y - ROAD_R - 60;
+
+    // Building
+    g.fillStyle(0xD4A857); g.fillRect(sx - 50, sy - 40, 100, 80);
+    // Roof
+    g.fillStyle(0x8B2500); g.fillTriangle(sx, sy - 76, sx - 62, sy - 40, sx + 62, sy - 40);
+    // Door
+    g.fillStyle(0x5C3317); g.fillRect(sx - 14, sy + 10, 28, 30);
+    // Windows
+    g.fillStyle(0xADD8E6, 0.8);
+    g.fillRect(sx - 44, sy - 24, 22, 18);
+    g.fillRect(sx + 22, sy - 24, 22, 18);
+    // Sign board
+    g.fillStyle(0xCC8800); g.fillRect(sx - 46, sy - 60, 92, 22);
+
+    this.add.text(sx, sy - 49, '🏗 БУДМАТЕРІАЛИ',
+      { fontSize: '10px', color: '#fff', fontStyle: 'bold' })
+      .setOrigin(0.5);
+
+    this.storeHint = this.add.text(sx, sy - 100, '',
+      { fontSize: '15px', color: '#FFD700', fontStyle: 'bold',
+        backgroundColor: '#00000099', padding: { x: 8, y: 4 } })
+      .setOrigin(0.5).setDepth(12);
   }
 
   _lamppost(g, x, y) {
@@ -288,6 +324,21 @@ export default class CommuteScene extends Phaser.Scene {
     const display = Math.round(Math.abs(this.carSpeed) / 10) * 10;
     this.speedText.setText(display > 0 ? `${display} км/год` : '');
 
+    // Near building materials store (only going home)
+    if (this.goingHome && !this.stoppedAtStore && this.storeHint) {
+      const storeDist = Math.hypot(this.carX - STORE_POS.x, this.carY - STORE_POS.y);
+      if (storeDist < 110) {
+        this.storeHint.setText('ENTER — зупинитись у будмагазині 🏗');
+        if (Phaser.Input.Keyboard.JustDown(this.enterKey)) {
+          this.stoppedAtStore = true;
+          this._enterStore();
+          return;
+        }
+      } else {
+        this.storeHint.setText('');
+      }
+    }
+
     // Near destination
     const dist = Math.hypot(this.carX - this.destX, this.carY - this.destY);
     if (dist < 95) {
@@ -299,12 +350,20 @@ export default class CommuteScene extends Phaser.Scene {
     }
   }
 
+  _enterStore() {
+    if (this.done) return;
+    this.done = true;
+    this._keys.up = this._keys.down = this._keys.left = this._keys.right = false;
+    this.cameras.main.fadeOut(500, 0, 0, 0);
+    this.time.delayedCall(500, () => this.scene.start('MaterialsStoreScene'));
+  }
+
   _finish() {
     if (this.done) return;
     this.done = true;
     this._keys.up = this._keys.down = this._keys.left = this._keys.right = false;
     this.cameras.main.fadeOut(500, 0, 0, 0);
-    const next = this.goingHome ? 'HomeScene' : 'ShopScene';
+    const next = this.goingHome ? 'HomeScene' : (JOB_SCENES[GameState.job] || 'ShopScene');
     this.time.delayedCall(500, () => this.scene.start(next));
   }
 }

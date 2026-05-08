@@ -117,6 +117,76 @@
     .btn-cancel  { background: #555; color: #fff; }
     .btn-cancel:hover  { background: #444; }
 
+    /* ── Price panel ── */
+    #price-panel {
+      display: none;
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(20, 14, 50, 0.97);
+      border-top: 3px solid #FFD700;
+      padding: 14px 18px;
+      color: #fff;
+      z-index: 100;
+      max-height: 56%;
+      overflow-y: auto;
+    }
+    #price-panel h2 { color: #FFD700; font-size: 18px; margin-bottom: 12px; }
+    .price-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .price-markup { font-size: 11px; margin-bottom: 4px; }
+    .price-btn {
+      background: #997700;
+      border: none;
+      color: #fff;
+      width: 26px;
+      height: 26px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 18px;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .price-btn:hover { background: #775500; }
+
+    /* ── Materials store panel ── */
+    #store-panel {
+      display: none;
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      background: rgba(10, 24, 10, 0.97);
+      border-top: 3px solid #CC8800;
+      padding: 14px 18px;
+      color: #fff;
+      z-index: 100;
+      max-height: 60%;
+      overflow-y: auto;
+    }
+    #store-panel h2 { color: #CC8800; font-size: 18px; margin-bottom: 12px; }
+    .store-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .store-item {
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,200,50,0.2);
+      border-radius: 7px;
+      padding: 10px 12px;
+    }
+    .store-item-name  { font-weight: bold; font-size: 14px; margin-bottom: 3px; }
+    .store-item-price { color: #FFD700; font-size: 12px; margin-bottom: 2px; }
+    .store-item-inv   { color: #88FFAA; font-size: 11px; margin-bottom: 6px; }
+    .store-item-req   { color: #AAAAAA; font-size: 10px; margin-bottom: 6px; }
+
     /* ── Home delivery panel ── */
     #home-panel {
       display: none;
@@ -173,6 +243,22 @@
       <div class="order-actions">
         <button class="btn-cancel"  id="btn-cancel-order">Закрити</button>
         <button class="btn-confirm" id="btn-confirm-order">✔ Замовити</button>
+      </div>
+    </div>
+
+    <div id="store-panel">
+      <h2>🏗 Магазин будматеріалів</h2>
+      <div class="store-grid" id="store-grid"></div>
+      <div class="order-actions">
+        <button class="btn-confirm" id="btn-store-leave">🏠 Їхати додому →</button>
+      </div>
+    </div>
+
+    <div id="price-panel">
+      <h2>💰 Управління цінами</h2>
+      <div class="price-grid" id="price-grid"></div>
+      <div class="order-actions">
+        <button class="btn-cancel" id="btn-close-prices">Закрити</button>
       </div>
     </div>
   </div>

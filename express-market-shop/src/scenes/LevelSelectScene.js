@@ -15,6 +15,16 @@ export default class LevelSelectScene extends Phaser.Scene {
     this.add.text(512, 100, 'Оберіть рівень',
       { fontSize: '22px', color: '#AACCFF' }).setOrigin(0.5);
 
+    const recBtn = this.add.text(920, 50, '🏆 Рекорди',
+      { fontSize: '16px', color: '#FFD700', backgroundColor: '#1a1a00',
+        padding: { x: 12, y: 6 } }).setOrigin(0.5).setInteractive();
+    recBtn.on('pointerover', () => recBtn.setStyle({ color: '#fff', backgroundColor: '#333300' }));
+    recBtn.on('pointerout',  () => recBtn.setStyle({ color: '#FFD700', backgroundColor: '#1a1a00' }));
+    recBtn.on('pointerdown', () => {
+      this.cameras.main.fadeOut(300, 0, 0, 0);
+      this.time.delayedCall(300, () => this.scene.start('RecordsScene', { returnTo: 'LevelSelectScene' }));
+    });
+
     const changeBtn = this.add.text(512, 136, '↩ змінити роботу',
       { fontSize: '14px', color: '#6688AA' }).setOrigin(0.5).setInteractive();
     changeBtn.on('pointerover', () => changeBtn.setStyle({ color: '#AACCFF' }));

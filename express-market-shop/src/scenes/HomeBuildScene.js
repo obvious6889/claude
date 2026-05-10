@@ -1,5 +1,6 @@
 import { GameState, LEVEL_CONFIG, resetForLevel } from '../state.js';
 import { MATERIALS, MATERIALS_MAP } from '../data/materials.js';
+import { updateRecord } from '../utils/records.js';
 
 const COLS      = 14;
 const ROWS      = 10;
@@ -330,6 +331,8 @@ export default class HomeBuildScene extends Phaser.Scene {
       GameState.maxUnlocked = level + 1;
     }
 
+    const { isNew } = updateRecord(GameState.job, level, GameState.day, GameState.earnings);
+
     const g = this.add.graphics().setDepth(50);
     g.fillStyle(0x000000, 0.82); g.fillRect(0, 0, 1024, 700);
 
@@ -341,7 +344,12 @@ export default class HomeBuildScene extends Phaser.Scene {
       { fontSize: '22px', color: '#fff' }).setOrigin(0.5).setDepth(51);
     this.add.text(512, 265, `Заробіток: ${GameState.earnings.toFixed(2)} €`,
       { fontSize: '18px', color: '#88FFAA' }).setOrigin(0.5).setDepth(51);
-    this.add.text(512, 320, '★★★★',
+    if (isNew) {
+      this.add.text(512, 300, '🏆 НОВИЙ РЕКОРД!',
+        { fontSize: '22px', color: '#FFD700', fontStyle: 'bold',
+          stroke: '#000', strokeThickness: 3 }).setOrigin(0.5).setDepth(51);
+    }
+    this.add.text(512, isNew ? 338 : 320, '★★★★',
       { fontSize: '60px', color: '#FFD700' }).setOrigin(0.5).setDepth(51);
 
     if (isLast) {
@@ -350,7 +358,7 @@ export default class HomeBuildScene extends Phaser.Scene {
       this.add.text(512, 468, 'Натисни F5 щоб грати знову',
         { fontSize: '16px', color: '#aaa' }).setOrigin(0.5).setDepth(51);
     } else {
-      const btn = this.add.text(512, 430, `▶ Рівень ${level + 1}`,
+      const btn = this.add.text(512, 450, `▶ Рівень ${level + 1}`,
         { fontSize: '28px', color: '#FFD700', backgroundColor: '#1a3a6a',
           padding: { x: 24, y: 14 }, fontStyle: 'bold' })
         .setOrigin(0.5).setInteractive().setDepth(51);
@@ -361,7 +369,7 @@ export default class HomeBuildScene extends Phaser.Scene {
         this.time.delayedCall(400, () => this.scene.start('LevelSelectScene'));
       });
 
-      const cont = this.add.text(512, 500, 'або продовжити будувати...',
+      const cont = this.add.text(512, 520, 'або продовжити будувати...',
         { fontSize: '16px', color: '#888' }).setOrigin(0.5).setInteractive().setDepth(51);
       cont.on('pointerover', () => cont.setStyle({ color: '#fff' }));
       cont.on('pointerout',  () => cont.setStyle({ color: '#888' }));

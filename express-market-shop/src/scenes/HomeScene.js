@@ -1,4 +1,6 @@
 import { GameState, LEVEL_CONFIG } from '../state.js';
+import { saveGame } from '../utils/save.js';
+import { playSound } from '../utils/sound.js';
 
 const BED_POS    = { x: 820, y: 400 };
 const PLAYER_START_HOME = { x: 400, y: 560 };
@@ -127,6 +129,14 @@ export default class HomeScene extends Phaser.Scene {
     this.add.text(1010, 34, `Ціль: ${goal} €`,
       { fontSize: '12px', color: '#88BBFF' }).setOrigin(1, 0).setDepth(21);
 
+    const saveBtn = this.add.text(14, 34, '💾 S — Зберегти', {
+      fontSize: '13px', color: '#88DDFF',
+      backgroundColor: '#001122', padding: { x: 6, y: 2 },
+    }).setDepth(21).setInteractive();
+    saveBtn.on('pointerover', () => saveBtn.setStyle({ color: '#fff' }));
+    saveBtn.on('pointerout',  () => saveBtn.setStyle({ color: '#88DDFF' }));
+    saveBtn.on('pointerdown', () => this._saveGame());
+
     this.hintText = this.add.text(512, 672, '↑ ↓ ← →  Підійди до ліжка і натисни  C  щоб спати',
       { fontSize: '14px', color: '#FFFF44', backgroundColor: '#00000099',
         padding: { x: 10, y: 4 } }).setOrigin(0.5).setDepth(22);
@@ -138,6 +148,7 @@ export default class HomeScene extends Phaser.Scene {
     this.cursors = this.input.keyboard.createCursorKeys();
     this.cKey    = this.input.keyboard.addKey('C');
     this.cKey.on('down', () => this._trySleep());
+    this.input.keyboard.addKey('S').on('down', () => this._saveGame());
   }
 
   _trySleep() {
@@ -151,6 +162,16 @@ export default class HomeScene extends Phaser.Scene {
       this.cameras.main.fadeOut(800, 0, 0, 0);
       this.time.delayedCall(800, () => this.scene.start('HomeBuildScene'));
     }
+  }
+
+  _saveGame() {
+    saveGame();
+    playSound('save');
+    const t = this.add.text(512, 350, '💾 Збережено!', {
+      fontSize: '28px', color: '#00FF88', fontStyle: 'bold',
+      backgroundColor: '#000000AA', padding: { x: 16, y: 8 },
+    }).setOrigin(0.5).setDepth(30);
+    this.tweens.add({ targets: t, y: 300, alpha: 0, duration: 1500, onComplete: () => t.destroy() });
   }
 
   // ─── Win screen ───────────────────────────────────────────────────────────

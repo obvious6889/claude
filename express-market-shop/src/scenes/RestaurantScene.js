@@ -1,4 +1,6 @@
 import { GameState, LEVEL_CONFIG } from '../state.js';
+import { UPGRADES } from '../data/upgrades.js';
+import { playSound } from '../utils/sound.js';
 
 const PLAYER_SPEED = 175;
 const IR = 88; // interaction radius
@@ -42,6 +44,7 @@ export default class RestaurantScene extends Phaser.Scene {
     this._drawBackground();
     this._createPlayer();
     this._createHUD();
+    this._createUpgradePanel();
     this._setupInput();
     this.cameras.main.fadeIn(400);
   }
@@ -121,6 +124,36 @@ export default class RestaurantScene extends Phaser.Scene {
       fontSize: '14px', color: '#00FF88', fontStyle: 'bold',
       backgroundColor: '#00000099', padding: { x: 5, y: 2 },
     }).setOrigin(0.5).setDepth(9);
+  }
+
+  _createUpgradePanel() {
+    if (this._upgBtns) this._upgBtns.forEach(b => b.destroy());
+    this._upgBtns = [];
+    const ups = GameState.upgrades.restaurant;
+    let x = 14;
+    UPGRADES.restaurant.forEach(upg => {
+      const bought = ups[upg.id];
+      const canAfford = GameState.earnings >= upg.cost;
+      const label = bought ? `✓ ${upg.label}` : `⬆ ${upg.label} ${upg.cost}€`;
+      const color = bought ? '#88FF88' : (canAfford ? '#FFDD44' : '#888888');
+      const bg    = bought ? '#002200' : (canAfford ? '#221100' : '#111111');
+      const btn = this.add.text(x, 36, label, {
+        fontSize: '11px', color, backgroundColor: bg, padding: { x: 5, y: 2 },
+      }).setDepth(21);
+      if (!bought) {
+        btn.setInteractive();
+        btn.on('pointerdown', () => {
+          if (GameState.upgrades.restaurant[upg.id] || GameState.earnings < upg.cost) return;
+          GameState.earnings = parseFloat((GameState.earnings - upg.cost).toFixed(2));
+          GameState.upgrades.restaurant[upg.id] = true;
+          this._updateHUD();
+          this._createUpgradePanel();
+          playSound('upgrade');
+        });
+      }
+      this._upgBtns.push(btn);
+      x += btn.width + 8;
+    });
   }
 
   // ─── Player ─────────────────────────────────────────────────────────────────
@@ -238,7 +271,9 @@ export default class RestaurantScene extends Phaser.Scene {
         GameState.earnings = parseFloat((GameState.earnings + d.price).toFixed(2));
         this.served++;
         this.carrying = null;
+        playSound('serve');
         this._updateHUD();
+        this._createUpgradePanel();
         return;
       }
     }
@@ -260,12 +295,13 @@ export default class RestaurantScene extends Phaser.Scene {
       const si = DISHES.findIndex(d => d.id === this.pendingOrder.dishId);
       if (Math.hypot(this.playerPos.x - STATION_XS[si], this.playerPos.y - STATION_Y) < IR) {
         const d = DISHES[si];
+        const mult = GameState.upgrades.restaurant.fastCook ? 0.5 : 1;
         this.activeCooking = {
           stationIdx: si,
           dishId:     d.id,
           tableIdx:   this.pendingOrder.tableIdx,
           timer:      0,
-          maxTimer:   d.cookSec * 1000,
+          maxTimer:   d.cookSec * 1000 * mult,
         };
         this._updateHUD();
         return;
@@ -273,7 +309,8 @@ export default class RestaurantScene extends Phaser.Scene {
     }
 
     // 4. Take order
-    if (!this.pendingOrder && !this.carrying && !this.activeCooking) {
+    const canTakeOrder = !this.activeCooking || GameState.upgrades.restaurant.secondStove;
+    if (!this.pendingOrder && !this.carrying && canTakeOrder) {
       let best = null, bestDist = IR;
       this.customers.forEach(c => {
         if (c.state !== 'waiting') return;
@@ -284,6 +321,7 @@ export default class RestaurantScene extends Phaser.Scene {
         best.state = 'ordered';
         best.bubbleText.setText('⏳');
         this.pendingOrder = { dishId: best.dishId, tableIdx: best.tableIdx };
+        playSound('order');
         this._updateHUD();
       }
     }

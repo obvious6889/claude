@@ -1,4 +1,5 @@
 import { GameState } from '../state.js';
+import { hasSave, loadGame } from '../utils/save.js';
 
 export default class JobSelectScene extends Phaser.Scene {
   constructor() { super({ key: 'JobSelectScene' }); }
@@ -49,6 +50,21 @@ export default class JobSelectScene extends Phaser.Scene {
         bg: 0x1a0a18, border: 0xCC44AA, labelColor: '#FF88CC',
       },
     ];
+
+    if (hasSave()) {
+      const cont = this.add.text(512, 660, '📂 Продовжити збережену гру', {
+        fontSize: '18px', color: '#00FF88', backgroundColor: '#002200',
+        padding: { x: 18, y: 9 }, fontStyle: 'bold',
+      }).setOrigin(0.5).setInteractive();
+      cont.on('pointerover', () => cont.setStyle({ color: '#fff', backgroundColor: '#004400' }));
+      cont.on('pointerout',  () => cont.setStyle({ color: '#00FF88', backgroundColor: '#002200' }));
+      cont.on('pointerdown', () => {
+        if (loadGame()) {
+          this.cameras.main.fadeOut(400, 0, 0, 0);
+          this.time.delayedCall(400, () => this.scene.start('HomeScene'));
+        }
+      });
+    }
 
     const CXS = [185, 512, 839];
     const W = 268, H = 408;

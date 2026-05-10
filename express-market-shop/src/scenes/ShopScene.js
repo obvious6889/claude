@@ -1,5 +1,7 @@
 import { GameState, LEVEL_CONFIG } from '../state.js';
 import { PRODUCTS, PRODUCTS_MAP } from '../data/products.js';
+import { UPGRADES } from '../data/upgrades.js';
+import { playSound } from '../utils/sound.js';
 
 let _orderSeq = 0;
 
@@ -54,6 +56,8 @@ export default class ShopScene extends Phaser.Scene {
     this._createPlayer();
     this._createCashier();
     this._createHUD();
+    this._createUpgradePanel();
+    this._applyStartUpgrades();
     this._setupInput();
     this._setupOrderPanel();
     this._setupPricePanel();
@@ -89,6 +93,45 @@ export default class ShopScene extends Phaser.Scene {
     this.noonNotified     = false;
     this._cashierTimer    = 0;
     this._dayEnding       = false;
+  }
+
+  _createUpgradePanel() {
+    if (this._upgBtns) this._upgBtns.forEach(b => b.destroy());
+    this._upgBtns = [];
+    const ups = GameState.upgrades.shop;
+    let x = 14;
+    UPGRADES.shop.forEach(upg => {
+      const bought = ups[upg.id];
+      const canAfford = GameState.earnings >= upg.cost;
+      const label = bought ? `✓ ${upg.label}` : `⬆ ${upg.label} ${upg.cost}€`;
+      const color = bought ? '#88FF88' : (canAfford ? '#FFDD44' : '#888888');
+      const bg    = bought ? '#002200' : (canAfford ? '#221100' : '#111111');
+      const btn = this.add.text(x, 36, label, {
+        fontSize: '11px', color, backgroundColor: bg, padding: { x: 5, y: 2 },
+      }).setDepth(21);
+      if (!bought) {
+        btn.setInteractive();
+        btn.on('pointerdown', () => {
+          if (GameState.upgrades.shop[upg.id] || GameState.earnings < upg.cost) return;
+          GameState.earnings = parseFloat((GameState.earnings - upg.cost).toFixed(2));
+          GameState.upgrades.shop[upg.id] = true;
+          if (upg.id === 'moreShelf') {
+            PRODUCTS.forEach(p => { GameState.stock[p.id] += 20; this._refreshSlot(p.id); });
+          }
+          this._updateHUD();
+          this._createUpgradePanel();
+          playSound('upgrade');
+        });
+      }
+      this._upgBtns.push(btn);
+      x += btn.width + 8;
+    });
+  }
+
+  _applyStartUpgrades() {
+    if (GameState.upgrades.shop.moreShelf) {
+      PRODUCTS.forEach(p => { GameState.stock[p.id] += 20; });
+    }
   }
 
   // ─── Human sprite helper ──────────────────────────────────────────────────
@@ -524,12 +567,14 @@ export default class ShopScene extends Phaser.Scene {
     GameState.stock[productId] = Math.max(0, GameState.stock[productId] - qty);
     this._refreshSlot(productId);
     this._checkLowStock(productId);
+    playSound('cash');
 
     const label = byCashier ? `👔 ${earned.toFixed(2)} €` : `+${earned.toFixed(2)} € (${p.name})`;
     this._floatText(label, REGISTER_POS.x, REGISTER_POS.y - 30);
 
     c.scanIdx++;
     if (c.scanIdx >= c.cart.length) c.state = 'leaving';
+    this._createUpgradePanel();
   }
 
   _checkLowStock(id) {
@@ -634,7 +679,7 @@ export default class ShopScene extends Phaser.Scene {
         waypoints, wpIdx: 0,
         sprite, remove: false,
         useSelfCheckout,
-        checkoutTimer: 2.0,
+        checkoutTimer: GameState.upgrades.shop.fastCashier ? 1.0 : 2.0,
         isShoplifter: false,
       });
     }
@@ -694,10 +739,12 @@ export default class ShopScene extends Phaser.Scene {
             GameState.stock[productId] = Math.max(0, GameState.stock[productId] - qty);
             this._refreshSlot(productId);
             this._checkLowStock(productId);
+            playSound('cash');
             c.scanIdx++;
           }
           if (c.scanIdx >= c.cart.length) { c.state = 'leaving'; }
-          else { c.checkoutTimer = 2.0; }
+          else { c.checkoutTimer = GameState.upgrades.shop.fastCashier ? 1.0 : 2.0; }
+          this._createUpgradePanel();
         }
       } else if (c.state === 'leaving') {
         if (c.isShoplifter && c.stolen) {

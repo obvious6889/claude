@@ -1,4 +1,6 @@
 import { GameState, LEVEL_CONFIG } from '../state.js';
+import { UPGRADES } from '../data/upgrades.js';
+import { playSound } from '../utils/sound.js';
 
 const COLS = 10, ROWS = 8, TILE = 56;
 const OX   = Math.floor((1024 - COLS * TILE) / 2); // 232
@@ -71,6 +73,7 @@ export default class ConstructionScene extends Phaser.Scene {
     this._drawBackground();
     this._createGridGraphics();
     this._createHUD();
+    this._createUpgradePanel();
     this._setupInput();
     this._redrawGrid();
     this._updateHUD();
@@ -296,6 +299,49 @@ export default class ConstructionScene extends Phaser.Scene {
       : '');
   }
 
+  _createUpgradePanel() {
+    if (this._upgBtns) this._upgBtns.forEach(b => b.destroy());
+    this._upgBtns = [];
+    const ups = GameState.upgrades.construction;
+    let x = 14;
+    UPGRADES.construction.forEach(upg => {
+      const bought = ups[upg.id];
+      const canAfford = GameState.earnings >= upg.cost;
+      const label = bought ? `✓ ${upg.label}` : `⬆ ${upg.label} ${upg.cost}€`;
+      const color = bought ? '#88FF88' : (canAfford ? '#FFDD44' : '#888888');
+      const bg    = bought ? '#002200' : (canAfford ? '#221100' : '#111111');
+      const btn = this.add.text(x, 36, label, {
+        fontSize: '11px', color, backgroundColor: bg, padding: { x: 5, y: 2 },
+      }).setDepth(21);
+      if (!bought) {
+        btn.setInteractive();
+        btn.on('pointerdown', () => {
+          if (GameState.upgrades.construction[upg.id] || GameState.earnings < upg.cost) return;
+          GameState.earnings = parseFloat((GameState.earnings - upg.cost).toFixed(2));
+          GameState.upgrades.construction[upg.id] = true;
+          if (upg.id === 'bonusMaterials') this._applyBonusMaterials();
+          this._updateHUD();
+          this._createUpgradePanel();
+          playSound('upgrade');
+        });
+      }
+      this._upgBtns.push(btn);
+      x += btn.width + 8;
+    });
+  }
+
+  _applyBonusMaterials() {
+    if (this.orderIdx >= this.orders.length) return;
+    let placed = 0;
+    const max = 5;
+    while (placed < max) {
+      const i = Math.floor(Math.random() * (COLS * ROWS));
+      if (!this.grid[i]) { this.grid[i] = 'foundation'; placed++; }
+    }
+    this._redrawGrid();
+    this._updateHUD();
+  }
+
   _setupInput() {
     this._keys = { up: false, down: false, left: false, right: false };
     const onKD = (e) => {
@@ -337,6 +383,7 @@ export default class ConstructionScene extends Phaser.Scene {
 
     const order = this.orders[this.orderIdx];
     if (this._orderAllDone(order)) {
+      playSound('cash');
       GameState.earnings = parseFloat((GameState.earnings + order.pay).toFixed(2));
       this.grid.fill(null);
       this.orderIdx++;
@@ -355,6 +402,7 @@ export default class ConstructionScene extends Phaser.Scene {
     const idx = this.curRow * COLS + this.curCol;
     if (this.grid[idx]) return;
     this.grid[idx] = BUILD_TILES[this.selIdx].id;
+    playSound('place');
     this._redrawGrid();
     this._updateHUD();
   }
@@ -388,7 +436,7 @@ export default class ConstructionScene extends Phaser.Scene {
     if (k.down  && this.curRow < ROWS - 1) { this.curRow++; moved = true; }
 
     if (moved) {
-      this._moveTimer = 100;
+      this._moveTimer = GameState.upgrades.construction.turboCrane ? 55 : 100;
       this._redrawCrane();
     }
   }

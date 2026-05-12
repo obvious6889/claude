@@ -49,6 +49,13 @@ export default class JobSelectScene extends Phaser.Scene {
         desc: 'Обслуговуй гостей.\nПриймай замовлення,\nготуй страви,\nподавай та збирай чайові!',
         bg: 0x1a0a18, border: 0xCC44AA, labelColor: '#FF88CC',
       },
+      {
+        id: 'delivery',
+        emoji: '🚲',
+        name: 'Доставка',
+        desc: 'Розвози замовлення\nна велосипеді по місту.\nЧим швидше — тим\nбільше чайових!',
+        bg: 0x0a1525, border: 0xFF8800, labelColor: '#FFAA44',
+      },
     ];
 
     if (hasSave()) {
@@ -66,9 +73,9 @@ export default class JobSelectScene extends Phaser.Scene {
       });
     }
 
-    const CXS = [185, 512, 839];
-    const W = 268, H = 408;
-    const CARD_CY = 430;
+    const CXS = [130, 365, 600, 835];
+    const W = 212, H = 390;
+    const CARD_CY = 435;
 
     jobs.forEach((job, i) => {
       const cx = CXS[i];

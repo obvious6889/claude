@@ -1,6 +1,6 @@
 import { GameState } from '../state.js';
 
-const JOB_SCENES = { shop: 'ShopScene', construction: 'ConstructionScene', restaurant: 'RestaurantScene' };
+const JOB_SCENES = { shop: 'ShopScene', construction: 'ConstructionScene', restaurant: 'RestaurantScene', delivery: 'DeliveryScene' };
 
 const WORLD_W  = 2500;
 const WORLD_H  = 700;

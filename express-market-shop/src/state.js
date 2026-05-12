@@ -28,7 +28,9 @@ export const GameState = {
     shop:         { fastCashier: false, moreShelf: false },
     construction: { turboCrane: false, bonusMaterials: false },
     restaurant:   { secondStove: false, fastCook: false },
+    delivery:     { ebike: false, thermosBag: false },
   },
+  fedBonus: false,
 };
 
 PRODUCTS.forEach(p => {
@@ -49,10 +51,12 @@ export function resetForLevel(level) {
   GameState.materials  = { floor: 0, wall: 0, roof: 0, bed: 0, table: 0, chair: 0 };
   GameState.houseGrid  = [];
   GameState.houseComplete = false;
+  GameState.fedBonus = false;
   GameState.upgrades = {
     shop:         { fastCashier: false, moreShelf: false },
     construction: { turboCrane: false, bonusMaterials: false },
     restaurant:   { secondStove: false, fastCook: false },
+    delivery:     { ebike: false, thermosBag: false },
   };
   PRODUCTS.forEach(p => {
     GameState.stock[p.id]  = 20;

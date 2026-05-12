@@ -11,4 +11,8 @@ export const UPGRADES = {
     { id: 'secondStove', label: 'Друга плита',    cost: 45 },
     { id: 'fastCook',    label: 'Швидкий кухар', cost: 70 },
   ],
+  delivery: [
+    { id: 'ebike',      label: 'Електровелосипед', cost: 45 },
+    { id: 'thermosBag', label: 'Термосумка',        cost: 30 },
+  ],
 };

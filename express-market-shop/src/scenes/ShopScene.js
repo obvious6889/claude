@@ -70,7 +70,12 @@ export default class ShopScene extends Phaser.Scene {
       this.cashierSprite.setVisible(GameState.hasCashier);
       const n = GameState.homeOrders.length;
       this.backroomBadge.setText(n > 0 ? `${n}` : '').setVisible(n > 0);
+      this._updateHUD();
+      this._createUpgradePanel();
       this.cameras.main.fadeIn(300);
+      if (GameState.fedBonus) {
+        this._showNotification('😋 Ти ситий! +10% прибутку до кінця дня 🌟');
+      }
     });
   }
 
@@ -93,6 +98,8 @@ export default class ShopScene extends Phaser.Scene {
     this.noonNotified     = false;
     this._cashierTimer    = 0;
     this._dayEnding       = false;
+    this.lunchTaken       = false;
+    GameState.fedBonus    = false;
   }
 
   _createUpgradePanel() {
@@ -515,6 +522,13 @@ export default class ShopScene extends Phaser.Scene {
   _handleEnter() {
     if (this.orderOpen || this.vacuuming) return;
 
+    // Lunch break at exit door after noon
+    if (!this.lunchTaken && this.gameMin >= 12 * 60 &&
+        this._near(this.playerPos, EXIT_DOOR, INTERACTION_R)) {
+      this._goToLunch();
+      return;
+    }
+
     // Catch shoplifter
     const thief = this.customers.find(c =>
       c.isShoplifter && c.state !== 'leaving_caught' &&
@@ -532,6 +546,15 @@ export default class ShopScene extends Phaser.Scene {
     if (this._near(this.playerPos, REGISTER_POS, INTERACTION_R)) {
       this._scanOneItem();
     }
+  }
+
+  _goToLunch() {
+    this.lunchTaken = true;
+    this.cameras.main.fadeOut(350, 0, 0, 0);
+    this.time.delayedCall(350, () => {
+      this.scene.sleep('ShopScene');
+      this.scene.run('LunchScene', { returnTo: 'ShopScene' });
+    });
   }
 
   _handleSpace() {
@@ -561,7 +584,7 @@ export default class ShopScene extends Phaser.Scene {
 
     const { productId, qty } = c.cart[c.scanIdx];
     const p = PRODUCTS_MAP[productId];
-    const earned = (GameState.prices[productId] - p.supplierPrice) * qty;
+    const earned = (GameState.prices[productId] - p.supplierPrice) * qty * (GameState.fedBonus ? 1.1 : 1);
 
     GameState.earnings += earned;
     GameState.stock[productId] = Math.max(0, GameState.stock[productId] - qty);
@@ -735,7 +758,7 @@ export default class ShopScene extends Phaser.Scene {
           if (c.scanIdx < c.cart.length) {
             const { productId, qty } = c.cart[c.scanIdx];
             const p = PRODUCTS_MAP[productId];
-            GameState.earnings += (GameState.prices[productId] - p.supplierPrice) * qty;
+            GameState.earnings += (GameState.prices[productId] - p.supplierPrice) * qty * (GameState.fedBonus ? 1.1 : 1);
             GameState.stock[productId] = Math.max(0, GameState.stock[productId] - qty);
             this._refreshSlot(productId);
             this._checkLowStock(productId);
@@ -795,7 +818,9 @@ export default class ShopScene extends Phaser.Scene {
       Math.hypot(c.x - this.playerPos.x, c.y - this.playerPos.y) < INTERACTION_R
     );
 
-    if (nearThief) {
+    if (!this.lunchTaken && this.gameMin >= 12 * 60 && this._near(this.playerPos, EXIT_DOOR, INTERACTION_R)) {
+      this.hintText.setText('🍽 ENTER — пообідати в кафе');
+    } else if (nearThief) {
       this.hintText.setText('⚠ ЗЛОДІЙ ПОРУЧ!  ENTER — зловити');
     } else if (this.vacuuming) {
       const pct = Math.round((this.vacuumProgress / VACUUM_DURATION) * 100);
@@ -876,7 +901,7 @@ export default class ShopScene extends Phaser.Scene {
     // Noon reminder
     if (!this.noonNotified && this.gameMin >= 12 * 60) {
       this.noonNotified = true;
-      this._showNotification('🧹 Обід! Час пилососити — візьми пилосос на складі.');
+      this._showNotification('🍽 Обід! Підійди до ВИХОДУ та натисни ENTER щоб пообідати.');
     }
 
     // Vacuum progress

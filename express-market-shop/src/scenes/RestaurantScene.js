@@ -41,12 +41,19 @@ export default class RestaurantScene extends Phaser.Scene {
     this.done         = false;
     this._spawnTimer  = 2000;   // first customer after 2s
 
+    GameState.fedBonus = true; // staff meal perk — restaurant workers eat for free
+
     this._drawBackground();
     this._createPlayer();
     this._createHUD();
     this._createUpgradePanel();
     this._setupInput();
     this.cameras.main.fadeIn(400);
+    this.time.delayedCall(2000, () => {
+      const el = document.getElementById('notification');
+      if (el) { el.textContent = '🍽 Ти їси безкоштовно як працівник! +10% до кожної страви 😋'; el.style.display = 'block'; }
+      setTimeout(() => { if (el) el.style.display = 'none'; }, 4500);
+    });
   }
 
   // ─── Background ─────────────────────────────────────────────────────────────
@@ -268,7 +275,7 @@ export default class RestaurantScene extends Phaser.Scene {
         c.state = 'eating';
         c.eatTimer = EAT_TIME;
         c.bubbleText.setText('😊✨');
-        GameState.earnings = parseFloat((GameState.earnings + d.price).toFixed(2));
+        GameState.earnings = parseFloat((GameState.earnings + d.price * (GameState.fedBonus ? 1.1 : 1)).toFixed(2));
         this.served++;
         this.carrying = null;
         playSound('serve');

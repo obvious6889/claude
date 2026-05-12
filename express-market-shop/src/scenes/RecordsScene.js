@@ -4,6 +4,7 @@ const JOB_META = [
   { id: 'shop',         emoji: '🛒', name: 'Магазин',      color: 0x4CAF50, textColor: '#88FF88' },
   { id: 'construction', emoji: '🏗',  name: 'Будівництво', color: 0xCC8800, textColor: '#FFCC44' },
   { id: 'restaurant',   emoji: '🍽',  name: 'Ресторан',    color: 0xCC44AA, textColor: '#FF88CC' },
+  { id: 'delivery',     emoji: '🚲', name: 'Доставка',     color: 0xFF8800, textColor: '#FFAA44' },
 ];
 
 const LEVELS = [1, 2, 3];
@@ -32,7 +33,7 @@ export default class RecordsScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     const records = getRecords();
-    const colW = 300, startX = 62, startY = 110;
+    const colW = 234, startX = 26, startY = 110;
 
     JOB_META.forEach((job, ji) => {
       const cx = startX + ji * colW;

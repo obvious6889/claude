@@ -10,6 +10,8 @@ import HomeBuildScene from './scenes/HomeBuildScene.js';
 import ConstructionScene from './scenes/ConstructionScene.js';
 import RestaurantScene from './scenes/RestaurantScene.js';
 import RecordsScene from './scenes/RecordsScene.js';
+import LunchScene from './scenes/LunchScene.js';
+import DeliveryScene from './scenes/DeliveryScene.js';
 
 const config = {
   type: Phaser.AUTO,
@@ -19,7 +21,7 @@ const config = {
   parent: 'game-container',
   scene: [JobSelectScene, LevelSelectScene, IntroScene, CommuteScene, ShopScene,
           BackRoomScene, HomeScene, MaterialsStoreScene, HomeBuildScene,
-          ConstructionScene, RestaurantScene, RecordsScene],
+          ConstructionScene, RestaurantScene, RecordsScene, LunchScene, DeliveryScene],
 };
 
 new Phaser.Game(config);

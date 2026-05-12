@@ -70,6 +70,11 @@ export default class ConstructionScene extends Phaser.Scene {
     this.orders   = shuffled.slice(0, count);
     this.orderIdx = 0;
 
+    this._lunchTaken  = false;
+    this._lunchReady  = false;
+    this._lunchTimer  = 0;
+    GameState.fedBonus = false;
+
     this._drawBackground();
     this._createGridGraphics();
     this._createHUD();
@@ -78,6 +83,11 @@ export default class ConstructionScene extends Phaser.Scene {
     this._redrawGrid();
     this._updateHUD();
     this.cameras.main.fadeIn(400);
+    this.events.on('wake', () => {
+      this.cameras.main.fadeIn(300);
+      this._updateHUD();
+      this._createUpgradePanel();
+    });
   }
 
   _drawBackground() {
@@ -294,9 +304,10 @@ export default class ConstructionScene extends Phaser.Scene {
       this.matLabels[t.id].setText(`${isActive ? '►' : ' '} ${t.name}\n   ще ${need} шт`);
     });
 
+    const lunchHint = this._lunchReady && !this._lunchTaken ? '  |  L — обід 🍽' : '';
     this.hintText.setText(allDone
-      ? `✓ ${order.name} готово! ENTER — здати та отримати ${order.pay}€`
-      : '');
+      ? `✓ ${order.name} готово! ENTER — здати та отримати ${order.pay}€${lunchHint}`
+      : lunchHint);
   }
 
   _createUpgradePanel() {
@@ -375,6 +386,17 @@ export default class ConstructionScene extends Phaser.Scene {
       this._redrawCrane(); this._updateHUD();
     });
     this.input.keyboard.addKey('C').on('down', () => this._goHome());
+    this.input.keyboard.addKey('L').on('down', () => this._goToLunch());
+  }
+
+  _goToLunch() {
+    if (this._lunchTaken || !this._lunchReady || this.done) return;
+    this._lunchTaken = true;
+    this.cameras.main.fadeOut(350, 0, 0, 0);
+    this.time.delayedCall(350, () => {
+      this.scene.sleep('ConstructionScene');
+      this.scene.run('LunchScene', { returnTo: 'ConstructionScene' });
+    });
   }
 
   _handleEnter() {
@@ -384,12 +406,13 @@ export default class ConstructionScene extends Phaser.Scene {
     const order = this.orders[this.orderIdx];
     if (this._orderAllDone(order)) {
       playSound('cash');
-      GameState.earnings = parseFloat((GameState.earnings + order.pay).toFixed(2));
+      const pay = parseFloat((order.pay * (GameState.fedBonus ? 1.1 : 1)).toFixed(2));
+      GameState.earnings = parseFloat((GameState.earnings + pay).toFixed(2));
       this.grid.fill(null);
       this.orderIdx++;
       this._redrawGrid();
       this._updateHUD();
-      const flash = this.add.text(512, 350, `+${order.pay.toFixed(2)} €`, {
+      const flash = this.add.text(512, 350, `+${pay.toFixed(2)} €${GameState.fedBonus ? ' 😋' : ''}`, {
         fontSize: '38px', color: '#00FF88', fontStyle: 'bold', stroke: '#000', strokeThickness: 3,
       }).setOrigin(0.5).setDepth(30);
       this.tweens.add({ targets: flash, y: 260, alpha: 0, duration: 1200, onComplete: () => flash.destroy() });
@@ -425,6 +448,16 @@ export default class ConstructionScene extends Phaser.Scene {
 
   update(_, delta) {
     if (this.done) return;
+
+    // Lunch becomes available after 20 seconds
+    if (!this._lunchReady) {
+      this._lunchTimer += delta;
+      if (this._lunchTimer >= 20000) {
+        this._lunchReady = true;
+        this._updateHUD();
+      }
+    }
+
     this._moveTimer -= delta;
     if (this._moveTimer > 0) return;
 
